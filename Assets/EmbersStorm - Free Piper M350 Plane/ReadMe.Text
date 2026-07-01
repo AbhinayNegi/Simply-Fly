@@ -1,0 +1,55 @@
+EmbersStorm - Free Piper M350 Plane
+Low Poly Stylized Propeller Aircraft | Unity 6 Ready | FREE
+Publisher: EmbersStorm AS Publisher | Version: 1.0 | 4 Prefabs
+
+OVERVIEW
+EmbersStorm - Free Piper M350 Plane is a low poly stylized propeller aircraft ready to drop into any Unity project for free. Clean topology, atlas-ready texture, and separated parts make it easy to animate and script right away.
+A great starting point for flight games, airport scenes, or any project that needs a civilian aircraft without the heavy polygon cost.
+
+WHAT'S INCLUDED
+
+4 prefabs (Body, Propeller/Fan, Wheels, Full assembled plane)
+Pre-assigned URP materials — no setup needed
+Atlas texture system — minimal draw calls
+Correct pivot points on every part for easy animation
+Clean descriptive naming throughout
+
+
+COLORS
+
+Body: Blue/Grey
+Trim & Landing Gear: Gold/Yellow
+Windows: Dark tinted
+Propeller: Dark/Black
+
+
+TECHNICAL DETAILS
+
+Prefabs: 4 (separated parts + full assembly)
+Max polygons: ~300 faces
+Texture: Single atlas texture
+Render Pipeline: URP (Unity 6)
+Unity Version: Unity 6 (6000.4+)
+Platforms: PC, Mac, Linux, Mobile, Console
+LOD: Not included
+Animations: Not included
+Colliders: Not included
+
+
+HOW TO USE
+
+Import the package into your Unity 6 URP project
+Drag the full assembled prefab into your scene
+Use the separated parts (body, fan, wheels) to add rotation animations on the propeller and wheels independently
+Attach your flight controller script to the root and fly
+
+
+ADDITIONAL COMPATIBILITY
+Designed and tested in Unity 6 with URP. Compatible with Unity 2021/2022 LTS URP with minor material reassignment. HDRP and Built-in Pipeline users will need to reassign materials — meshes are pipeline independent.
+
+⭐ Enjoying the pack?
+If this pack saved you time, a quick rating takes 10 seconds and helps a solo indie dev from Tunisia keep creating more free and paid assets. It means the world 🙏
+
+SUPPORT
+Instagram: @embersstorm
+Publisher: EmbersStorm AS Publisher (ID: 134564)
