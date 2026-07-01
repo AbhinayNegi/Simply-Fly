@@ -11,7 +11,7 @@ namespace SimplyFly.Editor
     [InitializeOnLoad]
     public static class GroundOperationsSceneSetup
     {
-        private const string SetupMarkerName = "Sprint 1 - Ground Operations v8";
+        private const string SetupMarkerName = "Sprint 2 - Takeoff Physics v4";
 
         static GroundOperationsSceneSetup()
         {
@@ -116,6 +116,8 @@ namespace SimplyFly.Editor
             BrakeController brakes = GetOrAdd<BrakeController>(aircraft);
             SteeringController steering = GetOrAdd<SteeringController>(aircraft);
             GroundMovementController movement = GetOrAdd<GroundMovementController>(aircraft);
+            FlightPhysicsController flightPhysics = GetOrAdd<FlightPhysicsController>(aircraft);
+            AircraftResetController resetController = GetOrAdd<AircraftResetController>(aircraft);
             PropellerController propellerController = GetOrAdd<PropellerController>(aircraft);
             EngineAudioController audio = GetOrAdd<EngineAudioController>(aircraft);
             WheelVisualController visuals = GetOrAdd<WheelVisualController>(aircraft);
@@ -131,6 +133,7 @@ namespace SimplyFly.Editor
             SetObject(steering, "noseWheel", nose);
             SetObject(steering, "aircraftBody", body);
             SetObject(steering, "movement", movement);
+            SetObject(steering, "flightPhysics", flightPhysics);
             SetObject(movement, "engine", engine);
             SetObject(movement, "throttle", throttle);
             SetObject(movement, "brakes", brakes);
@@ -143,6 +146,31 @@ namespace SimplyFly.Editor
             SetFloat(movement, "idleCreepSpeed", 1.35f);
             SetFloat(movement, "breakawayThrust", 0.28f);
             SetFloat(movement, "staticFrictionSoftness", 1.25f);
+            SetObject(flightPhysics, "input", input);
+            SetObject(flightPhysics, "engine", engine);
+            SetObject(flightPhysics, "throttle", throttle);
+            SetObject(flightPhysics, "groundMovement", movement);
+            SetArray(flightPhysics, "groundCheckPoints",
+                new Object[] { left.transform, right.transform, nose.transform });
+            SetFloat(flightPhysics, "takeoffSpeed", 19.5f);
+            SetFloat(flightPhysics, "maxLiftForce", 16500f);
+            SetFloat(flightPhysics, "pitchLiftInfluence", 0.38f);
+            SetFloat(flightPhysics, "levelLiftFactor", 0.68f);
+            SetFloat(flightPhysics, "referenceAngleOfAttack", 8f);
+            SetFloat(flightPhysics, "rotationSpeed", 17.5f);
+            SetFloat(flightPhysics, "elevatorAuthority", 2.2f);
+            SetFloat(flightPhysics, "pitchResponse", 2.4f);
+            SetFloat(flightPhysics, "elevatorReturnSpeed", 3f);
+            SetFloat(flightPhysics, "pitchDamping", 3.2f);
+            SetFloat(flightPhysics, "maxRotationPitchAngle", 9f);
+            SetFloat(flightPhysics, "stableAngleOfAttack", 3f);
+            SetFloat(flightPhysics, "aerodynamicPitchStability", 0.085f);
+            SetFloat(flightPhysics, "runwayPitchLimitStrength", 0.65f);
+            SetFloat(flightPhysics, "maxAirbornePitchAngle", 45f);
+            SetFloat(flightPhysics, "airborneSafetyStrength", 0.18f);
+            SetFloat(flightPhysics, "liftoffConfirmationTime", 0.22f);
+            SetFloat(flightPhysics, "groundedCheckDistance", 0.14f);
+            SetFloat(flightPhysics, "aerodynamicDrag", 2.2f);
             SetObject(propellerController, "engine", engine);
             SetObject(propellerController, "propeller", propeller);
             SetInt(propellerController, "blurCopyCount", 12);
@@ -155,6 +183,15 @@ namespace SimplyFly.Editor
             SetObject(ui, "movement", movement);
             SetObject(ui, "brakes", brakes);
             SetObject(ui, "steering", steering);
+            SetObject(ui, "flightPhysics", flightPhysics);
+            SetObject(ui, "resetController", resetController);
+            SetObject(resetController, "engine", engine);
+            SetObject(resetController, "throttle", throttle);
+            SetObject(resetController, "brakes", brakes);
+            SetObject(resetController, "steering", steering);
+            SetObject(resetController, "groundMovement", movement);
+            SetObject(resetController, "flightPhysics", flightPhysics);
+            SetObject(resetController, "propeller", propellerController);
             ConfigureWheelVisuals(visuals, wheels, new[] { leftVisual, rightVisual, noseVisual });
             SetObject(visuals, "movement", movement);
         }

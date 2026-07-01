@@ -42,6 +42,9 @@ namespace SimplyFly.GroundOps
         public bool IsGrounded { get; private set; }
         public float SmoothedThrottle => smoothedThrottle;
         public float AppliedThrust { get; private set; }
+        public float CurrentEngineThrust => engineThrustDiagnostic;
+        public bool FlightTransitionActive { get; private set; }
+        public bool FlightWheelsGrounded { get; private set; } = true;
 
         private Rigidbody body;
         private float smoothedThrottle;
@@ -135,7 +138,7 @@ namespace SimplyFly.GroundOps
             resistanceForceDiagnostic = resistanceForce;
             brakeForceDiagnostic = appliedBrakeForce;
             netForceDiagnostic = netForce;
-            if (IsGrounded)
+            if (IsGrounded && (!FlightTransitionActive || FlightWheelsGrounded))
             {
                 body.AddForce(forward * appliedThrust, ForceMode.Force);
 
@@ -151,10 +154,30 @@ namespace SimplyFly.GroundOps
                 body.AddForce(
                     -lateralVelocity * lateralGrip * body.mass,
                     ForceMode.Force);
-                body.AddForce(Vector3.down * groundHoldForce, ForceMode.Force);
+                if (!FlightTransitionActive)
+                    body.AddForce(Vector3.down * groundHoldForce, ForceMode.Force);
             }
 
             requestedMoveDiagnostic = forwardSpeed * Time.fixedDeltaTime;
+        }
+
+        public void SetFlightTransition(bool active, bool wheelsGrounded)
+        {
+            FlightTransitionActive = active;
+            FlightWheelsGrounded = wheelsGrounded;
+        }
+
+        public void ResetGroundMovement()
+        {
+            smoothedThrottle = 0f;
+            AppliedThrust = 0f;
+            engineThrustDiagnostic = 0f;
+            GroundSpeed = 0f;
+            FlightTransitionActive = false;
+            FlightWheelsGrounded = true;
+            requestedMoveDiagnostic = 0f;
+            actualMoveDiagnostic = 0f;
+            hasPreviousPhysicsPosition = false;
         }
 
         public string GetDiagnostics()

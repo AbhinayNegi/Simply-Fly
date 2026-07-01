@@ -30,5 +30,10 @@ namespace SimplyFly.GroundOps
             BrakeAmount = Mathf.MoveTowards(
                 BrakeAmount, target, brakeResponseSpeed * Time.deltaTime);
         }
+
+        public void ResetBrakes()
+        {
+            BrakeAmount = 0f;
+        }
     }
 }

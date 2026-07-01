@@ -57,5 +57,19 @@ namespace SimplyFly.GroundOps
             yaw = defaultYaw;
             pitch = defaultPitch;
         }
+
+        public void SnapToTarget()
+        {
+            ResetOrbit();
+            if (target == null) return;
+
+            smoothedTarget = target.position;
+            Quaternion orbit = Quaternion.Euler(pitch, yaw, 0f);
+            Vector3 focus = target.position + targetOffset;
+            transform.position =
+                focus + orbit * Vector3.back * followDistance + Vector3.up * followHeight;
+            transform.rotation = Quaternion.LookRotation(
+                focus - transform.position, Vector3.up);
+        }
     }
 }

@@ -22,5 +22,10 @@ namespace SimplyFly.GroundOps
             if (input == null) return;
             Throttle = Mathf.Clamp01(Throttle + input.ThrottleInput * throttleResponseSpeed * Time.deltaTime);
         }
+
+        public void ResetThrottle()
+        {
+            Throttle = 0f;
+        }
     }
 }

@@ -60,5 +60,12 @@ namespace SimplyFly.GroundOps
             float smoothedRate = rate * Mathf.Clamp(rpmResponseSpeed, 0.01f, 20f) / 5f;
             CurrentRPM = Mathf.MoveTowards(CurrentRPM, targetRPM, smoothedRate * Time.deltaTime);
         }
+
+        public void ResetEngine()
+        {
+            State = EngineState.Off;
+            starterTimer = 0f;
+            CurrentRPM = offRPM;
+        }
     }
 }

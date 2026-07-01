@@ -137,5 +137,16 @@ namespace SimplyFly.GroundOps
             }
             return materials;
         }
+
+        public void ResetPropeller()
+        {
+            accumulatedAngle = 0d;
+            blurVisualAngle = 0f;
+            if (propeller != null) propeller.localRotation = authoredRotation;
+            if (solidRenderer != null) solidRenderer.enabled = true;
+            if (blurRenderers == null) return;
+            foreach (MeshRenderer renderer in blurRenderers)
+                if (renderer != null) renderer.enabled = false;
+        }
     }
 }

@@ -12,6 +12,7 @@ namespace SimplyFly.GroundOps
 
         public float ThrottleInput { get; private set; }
         public float SteeringInput { get; private set; }
+        public float ElevatorInput { get; private set; }
         public bool BrakeHeld { get; private set; }
         public bool StartEnginePressed { get; private set; }
         public bool ResetCameraPressed { get; private set; }
@@ -29,11 +30,14 @@ namespace SimplyFly.GroundOps
             }
 
             ThrottleInput = ReadAxis(
-                keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed,
-                keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed);
+                keyboard.leftShiftKey.isPressed || keyboard.pageUpKey.isPressed,
+                keyboard.leftCtrlKey.isPressed || keyboard.pageDownKey.isPressed);
             SteeringInput = ReadAxis(
                 keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed,
                 keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed);
+            ElevatorInput = ReadAxis(
+                keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed,
+                keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed);
             BrakeHeld = keyboard[brakeKey].isPressed;
             StartEnginePressed = keyboard[startEngineKey].wasPressedThisFrame;
             ResetCameraPressed = keyboard[resetCameraKey].wasPressedThisFrame;
@@ -51,6 +55,7 @@ namespace SimplyFly.GroundOps
         {
             ThrottleInput = 0f;
             SteeringInput = 0f;
+            ElevatorInput = 0f;
             BrakeHeld = false;
             StartEnginePressed = false;
             ResetCameraPressed = false;

@@ -8,6 +8,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private WheelCollider noseWheel;
         [SerializeField] private Rigidbody aircraftBody;
         [SerializeField] private GroundMovementController movement;
+        [SerializeField] private FlightPhysicsController flightPhysics;
         [SerializeField] private Vector3 localForwardAxis = Vector3.right;
         [Header("Steering")]
         [Range(1f, 60f)] [SerializeField] private float maximumSteeringAngle = 32f;
@@ -24,6 +25,7 @@ namespace SimplyFly.GroundOps
             if (input == null) input = GetComponent<AircraftInput>();
             if (aircraftBody == null) aircraftBody = GetComponent<Rigidbody>();
             if (movement == null) movement = GetComponent<GroundMovementController>();
+            if (flightPhysics == null) flightPhysics = GetComponent<FlightPhysicsController>();
         }
 
         private void FixedUpdate()
@@ -37,12 +39,22 @@ namespace SimplyFly.GroundOps
             if (noseWheel != null) noseWheel.steerAngle = SteeringAngle;
 
             // Ground-only yaw follows the nose-wheel angle. No air yaw is implemented.
-            if (aircraftBody != null && movement != null && movement.IsGrounded && speed > 0.15f)
+            bool groundSteeringAllowed =
+                flightPhysics == null ||
+                flightPhysics.State != FlightPhysicsController.AircraftState.Airborne;
+            if (aircraftBody != null && movement != null && movement.IsGrounded &&
+                groundSteeringAllowed && speed > 0.15f)
             {
                 float turnRate = SteeringAngle * Mathf.Clamp01(speed / 3f) * 0.55f;
                 Quaternion yaw = Quaternion.AngleAxis(turnRate * Time.fixedDeltaTime, transform.up);
                 aircraftBody.MoveRotation(yaw * aircraftBody.rotation);
             }
+        }
+
+        public void ResetSteering()
+        {
+            SteeringAngle = 0f;
+            if (noseWheel != null) noseWheel.steerAngle = 0f;
         }
     }
 }
