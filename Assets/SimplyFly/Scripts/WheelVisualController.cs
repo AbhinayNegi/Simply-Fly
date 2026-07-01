@@ -15,6 +15,7 @@ namespace SimplyFly.GroundOps
         }
 
         [SerializeField] private WheelBinding[] wheels;
+        [SerializeField] private GroundMovementController movement;
 
         private Quaternion[] authoredRotations;
         private Vector3[] authoredPositions;
@@ -26,6 +27,7 @@ namespace SimplyFly.GroundOps
             authoredRotations = new Quaternion[wheels.Length];
             authoredPositions = new Vector3[wheels.Length];
             spinAngles = new float[wheels.Length];
+            if (movement == null) movement = GetComponent<GroundMovementController>();
 
             for (int i = 0; i < wheels.Length; i++)
             {
@@ -46,7 +48,18 @@ namespace SimplyFly.GroundOps
                 // Keep the imported mesh orientation. WheelCollider.GetWorldPose returns an
                 // orientation in WheelCollider space, which turned this +X-forward model's
                 // tire meshes sideways.
-                spinAngles[i] = Mathf.Repeat(spinAngles[i] + wheel.collider.rpm * 6f * Time.deltaTime, 360f);
+                float degreesPerSecond;
+                if (movement != null)
+                {
+                    float radius = Mathf.Max(0.01f, wheel.collider.radius);
+                    degreesPerSecond = movement.GroundSpeed / radius * Mathf.Rad2Deg;
+                }
+                else
+                {
+                    degreesPerSecond = wheel.collider.rpm * 6f;
+                }
+                spinAngles[i] = Mathf.Repeat(
+                    spinAngles[i] + degreesPerSecond * Time.deltaTime, 360f);
                 Vector3 axle = wheel.visualAxle.sqrMagnitude > 0.01f
                     ? wheel.visualAxle.normalized
                     : Vector3.forward;
@@ -56,11 +69,7 @@ namespace SimplyFly.GroundOps
 
                 // Follow suspension vertically without allowing the collider to rewrite the
                 // tire's lateral/longitudinal authored placement.
-                wheel.collider.GetWorldPose(out Vector3 worldPosition, out _);
-                Vector3 localPose = wheel.visual.parent.InverseTransformPoint(worldPosition);
-                Vector3 localPosition = authoredPositions[i];
-                localPosition.y = localPose.y;
-                wheel.visual.localPosition = localPosition;
+                wheel.visual.localPosition = authoredPositions[i];
             }
         }
     }

@@ -11,7 +11,7 @@ namespace SimplyFly.Editor
     [InitializeOnLoad]
     public static class GroundOperationsSceneSetup
     {
-        private const string SetupMarkerName = "Sprint 1 - Ground Operations v2";
+        private const string SetupMarkerName = "Sprint 1 - Ground Operations v8";
 
         static GroundOperationsSceneSetup()
         {
@@ -80,9 +80,7 @@ namespace SimplyFly.Editor
 
         private static void ConfigureAircraft(GameObject aircraft)
         {
-            // The original wheel pivots sit 1.5 m below the root. At 1.55 m the
-            // WheelCollider ray origins were inside the runway, so isGrounded stayed false.
-            aircraft.transform.SetPositionAndRotation(new Vector3(-520f, 2.05f, 0f), Quaternion.identity);
+            aircraft.transform.SetPositionAndRotation(new Vector3(-520f, 1.73f, 0f), Quaternion.identity);
 
             Rigidbody body = GetOrAdd<Rigidbody>(aircraft);
             body.mass = 1200f;
@@ -127,15 +125,30 @@ namespace SimplyFly.Editor
             SetObject(engine, "input", input);
             SetObject(engine, "throttle", throttle);
             SetObject(brakes, "input", input);
+            SetFloat(brakes, "brakeStrength", 8500f);
+            SetFloat(brakes, "brakeResponseSpeed", 3.5f);
             SetObject(steering, "input", input);
             SetObject(steering, "noseWheel", nose);
             SetObject(steering, "aircraftBody", body);
+            SetObject(steering, "movement", movement);
             SetObject(movement, "engine", engine);
             SetObject(movement, "throttle", throttle);
             SetObject(movement, "brakes", brakes);
             SetArray(movement, "wheels", wheels);
+            SetFloat(movement, "idleThrust", 420f);
+            SetFloat(movement, "maxGroundThrust", 4800f);
+            SetFloat(movement, "throttleResponseSpeed", 0.55f);
+            SetFloat(movement, "maximumTaxiSpeed", 21f);
+            SetFloat(movement, "rollingResistance", 75f);
+            SetFloat(movement, "idleCreepSpeed", 1.35f);
+            SetFloat(movement, "breakawayThrust", 0.28f);
+            SetFloat(movement, "staticFrictionSoftness", 1.25f);
             SetObject(propellerController, "engine", engine);
             SetObject(propellerController, "propeller", propeller);
+            SetInt(propellerController, "blurCopyCount", 12);
+            SetFloat(propellerController, "blurCopyOpacity", 0.055f);
+            SetFloat(propellerController, "minimumBlurVisualSpeed", 180f);
+            SetFloat(propellerController, "maximumBlurVisualSpeed", 520f);
             SetObject(audio, "engine", engine);
             SetObject(ui, "engine", engine);
             SetObject(ui, "throttle", throttle);
@@ -143,6 +156,7 @@ namespace SimplyFly.Editor
             SetObject(ui, "brakes", brakes);
             SetObject(ui, "steering", steering);
             ConfigureWheelVisuals(visuals, wheels, new[] { leftVisual, rightVisual, noseVisual });
+            SetObject(visuals, "movement", movement);
         }
 
         private static void ConfigureCamera(GameObject aircraft)
@@ -167,12 +181,12 @@ namespace SimplyFly.Editor
         private static WheelCollider CreateWheelCollider(Transform parent, string name, Vector3 localPosition, bool nose)
         {
             GameObject go = FindOrCreateChild(parent, name);
-            go.transform.localPosition = localPosition;
+            go.transform.localPosition = localPosition + Vector3.up * 0.18f;
             go.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
             WheelCollider wheel = GetOrAdd<WheelCollider>(go);
-            wheel.radius = nose ? 0.34f : 0.42f;
+            wheel.radius = nose ? 0.18f : 0.22f;
             wheel.mass = nose ? 25f : 40f;
-            wheel.suspensionDistance = nose ? 0.18f : 0.24f;
+            wheel.suspensionDistance = nose ? 0.1f : 0.14f;
             wheel.forceAppPointDistance = 0.1f;
 
             JointSpring spring = wheel.suspensionSpring;
@@ -182,10 +196,10 @@ namespace SimplyFly.Editor
             wheel.suspensionSpring = spring;
 
             WheelFrictionCurve forward = wheel.forwardFriction;
-            forward.stiffness = 1.35f;
+            forward.stiffness = 0f;
             wheel.forwardFriction = forward;
             WheelFrictionCurve sideways = wheel.sidewaysFriction;
-            sideways.stiffness = nose ? 1.15f : 1.55f;
+            sideways.stiffness = 0f;
             wheel.sidewaysFriction = sideways;
             return wheel;
         }
@@ -272,6 +286,13 @@ namespace SimplyFly.Editor
         {
             SerializedObject serialized = new SerializedObject(target);
             serialized.FindProperty(field).floatValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetInt(Object target, string field, int value)
+        {
+            SerializedObject serialized = new SerializedObject(target);
+            serialized.FindProperty(field).intValue = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }

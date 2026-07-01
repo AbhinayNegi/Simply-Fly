@@ -12,17 +12,28 @@ namespace SimplyFly.GroundOps
         [Min(0.01f)] [SerializeField] private float rotationScale = 1f;
         [Header("High RPM blur")]
         [Min(0f)] [SerializeField] private float blurStartRPM = 1200f;
-        [Range(2, 12)] [SerializeField] private int blurCopyCount = 6;
-        [Range(0.01f, 0.5f)] [SerializeField] private float blurCopyOpacity = 0.1f;
+        [Range(4, 24)] [SerializeField] private int blurCopyCount = 12;
+        [Range(0.01f, 0.5f)] [SerializeField] private float blurCopyOpacity = 0.055f;
+        [Tooltip("Visible blur rotation at the blur threshold, in degrees per second.")]
+        [Min(1f)] [SerializeField] private float minimumBlurVisualSpeed = 180f;
+        [Tooltip("Visible blur rotation at maximum RPM, in degrees per second.")]
+        [Min(1f)] [SerializeField] private float maximumBlurVisualSpeed = 520f;
 
         private Quaternion authoredRotation;
         private double accumulatedAngle;
         private MeshRenderer solidRenderer;
         private MeshRenderer[] blurRenderers;
+        private Transform[] blurTransforms;
+        private float blurVisualAngle;
 
         private void Awake()
         {
             if (propeller == null) return;
+            if (blurCopyCount < 4) blurCopyCount = 12;
+            if (blurCopyOpacity <= 0f) blurCopyOpacity = 0.055f;
+            if (minimumBlurVisualSpeed <= 0f) minimumBlurVisualSpeed = 180f;
+            if (maximumBlurVisualSpeed <= minimumBlurVisualSpeed)
+                maximumBlurVisualSpeed = 520f;
             authoredRotation = propeller.localRotation;
             solidRenderer = propeller.GetComponent<MeshRenderer>();
             CreateBlurCopies();
@@ -40,10 +51,30 @@ namespace SimplyFly.GroundOps
                 authoredRotation * Quaternion.AngleAxis(displayedAngle, localRotationAxis.normalized);
 
             bool showBlur = engine.CurrentRPM >= blurStartRPM;
+            if (showBlur)
+            {
+                float highRpmProgress = Mathf.InverseLerp(blurStartRPM, 2700f, engine.CurrentRPM);
+                float visualSpeed = Mathf.Lerp(
+                    minimumBlurVisualSpeed, maximumBlurVisualSpeed, highRpmProgress);
+                blurVisualAngle = Mathf.Repeat(
+                    blurVisualAngle + visualSpeed * Time.deltaTime, 360f);
+            }
             if (solidRenderer != null) solidRenderer.enabled = !showBlur;
             if (blurRenderers == null) return;
-            foreach (MeshRenderer blurRenderer in blurRenderers)
-                if (blurRenderer != null) blurRenderer.enabled = showBlur;
+            for (int i = 0; i < blurRenderers.Length; i++)
+            {
+                if (blurRenderers[i] == null) continue;
+                blurRenderers[i].enabled = showBlur;
+                if (showBlur && blurTransforms[i] != null)
+                {
+                    // Cancel physically sampled rotation, then add a controlled positive
+                    // visual rotation. Its speed rises monotonically with RPM, preventing
+                    // wagon-wheel reversal while keeping full throttle visibly alive.
+                    float offset = 360f * i / blurRenderers.Length;
+                    blurTransforms[i].localRotation = Quaternion.AngleAxis(
+                        offset + blurVisualAngle - displayedAngle, localRotationAxis.normalized);
+                }
+            }
         }
 
         private void CreateBlurCopies()
@@ -52,6 +83,7 @@ namespace SimplyFly.GroundOps
             if (sourceFilter == null || solidRenderer == null || sourceFilter.sharedMesh == null) return;
 
             blurRenderers = new MeshRenderer[blurCopyCount];
+            blurTransforms = new Transform[blurCopyCount];
             for (int i = 0; i < blurCopyCount; i++)
             {
                 GameObject copy = new GameObject($"Propeller Blur {i + 1}");
@@ -64,13 +96,16 @@ namespace SimplyFly.GroundOps
                 MeshRenderer renderer = copy.AddComponent<MeshRenderer>();
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
-                renderer.sharedMaterials = CreateTransparentMaterials(solidRenderer.sharedMaterials);
+                float opacityVariation = Mathf.Lerp(0.72f, 1.28f, (i % 4) / 3f);
+                renderer.sharedMaterials = CreateTransparentMaterials(
+                    solidRenderer.sharedMaterials, opacityVariation);
                 renderer.enabled = false;
                 blurRenderers[i] = renderer;
+                blurTransforms[i] = copy.transform;
             }
         }
 
-        private Material[] CreateTransparentMaterials(Material[] sourceMaterials)
+        private Material[] CreateTransparentMaterials(Material[] sourceMaterials, float opacityMultiplier)
         {
             Material[] materials = new Material[sourceMaterials.Length];
             for (int i = 0; i < sourceMaterials.Length; i++)
@@ -89,13 +124,13 @@ namespace SimplyFly.GroundOps
                 if (material.HasProperty("_BaseColor"))
                 {
                     Color color = material.GetColor("_BaseColor");
-                    color.a = blurCopyOpacity;
+                    color.a = blurCopyOpacity * opacityMultiplier;
                     material.SetColor("_BaseColor", color);
                 }
                 else if (material.HasProperty("_Color"))
                 {
                     Color color = material.color;
-                    color.a = blurCopyOpacity;
+                    color.a = blurCopyOpacity * opacityMultiplier;
                     material.color = color;
                 }
                 materials[i] = material;

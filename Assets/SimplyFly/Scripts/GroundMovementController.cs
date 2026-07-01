@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SimplyFly.GroundOps
 {
@@ -12,75 +13,248 @@ namespace SimplyFly.GroundOps
 
         [Header("Ground movement")]
         [SerializeField] private Vector3 localForwardAxis = Vector3.right;
-        [Min(0f)] [SerializeField] private float maximumDriveForce = 5200f;
-        [Tooltip("Metres per second. 14 m/s is roughly 27 knots.")]
-        [Min(1f)] [SerializeField] private float maximumTaxiSpeed = 14f;
-        [Min(0f)] [SerializeField] private float rollingResistance = 180f;
+        [Tooltip("Propeller thrust available at engine idle.")]
+        [Min(0f)] [SerializeField] private float idleThrust = 420f;
+        [FormerlySerializedAs("maximumDriveForce")]
+        [Tooltip("Additional propeller thrust available at full throttle.")]
+        [Min(0f)] [SerializeField] private float maxGroundThrust = 4800f;
+        [Tooltip("How quickly movement throttle catches the commanded throttle.")]
+        [Min(0.01f)] [SerializeField] private float throttleResponseSpeed = 0.55f;
+        [Tooltip("Metres per second. 21 m/s is roughly 41 knots.")]
+        [Min(1f)] [SerializeField] private float maximumTaxiSpeed = 21f;
+        [Tooltip("Gentle force opposing motion when brakes are released.")]
+        [Min(0f)] [SerializeField] private float rollingResistance = 75f;
+        [Tooltip("Stable idle creep speed in metres per second.")]
+        [Min(0.1f)] [SerializeField] private float idleCreepSpeed = 1.35f;
+        [Tooltip("Fraction of thrust retained at a standstill for soft breakaway.")]
+        [Range(0.05f, 1f)] [SerializeField] private float breakawayThrust = 0.28f;
+        [Tooltip("Speed range over which static friction fades away.")]
+        [Min(0.05f)] [SerializeField] private float staticFrictionSoftness = 1.25f;
         [Min(0f)] [SerializeField] private float lateralGrip = 2.5f;
         [Min(0f)] [SerializeField] private float groundHoldForce = 2500f;
         [Tooltip("Fallback ground probe below each wheel, used while suspension is fully compressed.")]
         [Min(0.1f)] [SerializeField] private float groundProbeDistance = 1.1f;
+        [Tooltip("Ground-only safety probe from the aircraft body.")]
+        [Min(0.5f)] [SerializeField] private float bodyGroundProbeDistance = 3f;
 
         public float GroundSpeed { get; private set; }
         public float GroundSpeedKnots => GroundSpeed * 1.943844f;
         public bool IsGrounded { get; private set; }
+        public float SmoothedThrottle => smoothedThrottle;
+        public float AppliedThrust { get; private set; }
 
         private Rigidbody body;
+        private float smoothedThrottle;
+        private int fixedTickCount;
+        private int groundedWheelCount;
+        private bool bodyProbeGrounded;
+        private bool engineRunningDiagnostic;
+        private float engineThrustDiagnostic;
+        private float breakawayFactorDiagnostic;
+        private float speedFadeDiagnostic;
+        private float resistanceForceDiagnostic;
+        private float brakeForceDiagnostic;
+        private float netForceDiagnostic;
+        private float requestedMoveDiagnostic;
+        private float actualMoveDiagnostic;
+        private Vector3 previousPhysicsPosition;
+        private bool hasPreviousPhysicsPosition;
+        private int enabledWheelColliderCount;
 
         private void Awake()
         {
             body = GetComponent<Rigidbody>();
+            body.interpolation = RigidbodyInterpolation.Interpolate;
             if (engine == null) engine = GetComponent<EngineController>();
             if (throttle == null) throttle = GetComponent<ThrottleController>();
             if (brakes == null) brakes = GetComponent<BrakeController>();
+            RepairLegacyTuning();
+            ConfigureWheelsForSimplifiedGroundPhysics();
         }
 
         private void FixedUpdate()
         {
+            fixedTickCount++;
+            if (hasPreviousPhysicsPosition)
+                actualMoveDiagnostic = Vector3.Distance(body.position, previousPhysicsPosition);
+            previousPhysicsPosition = body.position;
+            hasPreviousPhysicsPosition = true;
+
             Vector3 planarVelocity = Vector3.ProjectOnPlane(body.linearVelocity, Vector3.up);
             GroundSpeed = planarVelocity.magnitude;
             IsGrounded = false;
+            groundedWheelCount = 0;
 
-            float brakeTorque = brakes == null ? 0f : brakes.BrakeTorque;
+            float brakeForce = brakes == null ? 0f : brakes.BrakeForce;
             if (wheels != null)
             {
                 foreach (WheelCollider wheel in wheels)
                 {
                     if (wheel == null) continue;
-                    wheel.brakeTorque = brakeTorque;
-                    IsGrounded |= wheel.isGrounded || HasGroundBelow(wheel);
+                    wheel.brakeTorque = brakeForce;
+                    bool wheelGrounded = wheel.isGrounded || HasGroundBelow(wheel);
+                    if (wheelGrounded) groundedWheelCount++;
+                    IsGrounded |= wheelGrounded;
                 }
             }
 
-            if (!IsGrounded) return;
+            bodyProbeGrounded = HasGroundBelowBody();
+            IsGrounded |= bodyProbeGrounded;
 
             Vector3 forward = transform.TransformDirection(localForwardAxis.normalized);
-            float forwardSpeed = Vector3.Dot(planarVelocity, forward);
-            if (engine != null && engine.State == EngineController.EngineState.Running && throttle != null &&
-                forwardSpeed < maximumTaxiSpeed)
+            bool engineRunning = engine != null &&
+                                 engine.State == EngineController.EngineState.Running;
+            engineRunningDiagnostic = engineRunning;
+            float commandedThrottle = engineRunning && throttle != null ? throttle.Throttle : 0f;
+            smoothedThrottle = Mathf.MoveTowards(
+                smoothedThrottle, commandedThrottle, throttleResponseSpeed * Time.fixedDeltaTime);
+            float brakeAmount = brakes == null ? 0f : brakes.BrakeAmount;
+            float engineThrust = engineRunning
+                ? idleThrust + smoothedThrottle * maxGroundThrust
+                : 0f;
+            engineThrustDiagnostic = engineThrust;
+
+            float forwardSpeed = Mathf.Max(0f, Vector3.Dot(planarVelocity, forward));
+            float breakawayProgress = Mathf.SmoothStep(
+                0f, 1f, Mathf.Clamp01(forwardSpeed / staticFrictionSoftness));
+            float breakawayFactor = Mathf.Lerp(breakawayThrust, 1f, breakawayProgress);
+            breakawayFactorDiagnostic = breakawayFactor;
+            float speedLimit = Mathf.Lerp(idleCreepSpeed, maximumTaxiSpeed, smoothedThrottle);
+            float speedFadeProgress = Mathf.InverseLerp(
+                speedLimit * 0.72f, speedLimit, forwardSpeed);
+            float speedFade = 1f - Mathf.SmoothStep(0f, 1f, speedFadeProgress);
+            speedFade = Mathf.Clamp01(speedFade);
+            speedFadeDiagnostic = speedFade;
+            float appliedThrust = IsGrounded ? engineThrust * breakawayFactor * speedFade : 0f;
+            AppliedThrust = appliedThrust;
+
+            float movingFactor = Mathf.Clamp01(GroundSpeed / 0.15f);
+            float resistanceForce = rollingResistance * movingFactor;
+            float appliedBrakeForce = brakeForce * movingFactor;
+            float netForce = appliedThrust - resistanceForce - appliedBrakeForce;
+            resistanceForceDiagnostic = resistanceForce;
+            brakeForceDiagnostic = appliedBrakeForce;
+            netForceDiagnostic = netForce;
+            if (IsGrounded)
             {
-                float speedFade = 1f - Mathf.Clamp01(Mathf.Max(0f, forwardSpeed) / maximumTaxiSpeed);
-                body.AddForce(forward * (maximumDriveForce * throttle.Throttle * speedFade), ForceMode.Force);
+                body.AddForce(forward * appliedThrust, ForceMode.Force);
+
+                if (GroundSpeed > 0.001f)
+                {
+                    body.AddForce(
+                        -planarVelocity.normalized * (resistanceForce + appliedBrakeForce),
+                        ForceMode.Force);
+                }
+
+                Vector3 lateralVelocity =
+                    planarVelocity - Vector3.Project(planarVelocity, forward);
+                body.AddForce(
+                    -lateralVelocity * lateralGrip * body.mass,
+                    ForceMode.Force);
+                body.AddForce(Vector3.down * groundHoldForce, ForceMode.Force);
             }
 
-            if (GroundSpeed > 0.02f)
-                body.AddForce(-planarVelocity.normalized * rollingResistance, ForceMode.Force);
+            requestedMoveDiagnostic = forwardSpeed * Time.fixedDeltaTime;
+        }
 
-            Vector3 lateral = planarVelocity - Vector3.Project(planarVelocity, forward);
-            body.AddForce(-lateral * lateralGrip * body.mass, ForceMode.Force);
-            body.AddForce(Vector3.down * groundHoldForce, ForceMode.Force);
+        public string GetDiagnostics()
+        {
+            if (body == null) return "GroundMovement: Rigidbody reference is NULL";
 
-            if (GroundSpeed > maximumTaxiSpeed * 1.08f)
+            return
+                "GROUND MOVEMENT DIAGNOSTICS\n" +
+                $"Component enabled : {enabled}\n" +
+                $"Fixed ticks       : {fixedTickCount}\n" +
+                $"Fixed delta       : {Time.fixedDeltaTime:0.0000} s\n" +
+                $"Engine reference  : {(engine == null ? "NULL" : engine.State.ToString())}\n" +
+                $"Engine running    : {engineRunningDiagnostic}\n" +
+                $"Throttle reference: {(throttle == null ? "NULL" : $"{throttle.Throttle * 100f:0.0}%")}\n" +
+                $"Smoothed throttle : {smoothedThrottle * 100f:0.0}%\n" +
+                $"Idle / max thrust : {idleThrust:0} / {maxGroundThrust:0} N\n" +
+                $"Throttle response : {throttleResponseSpeed:0.000}/s\n" +
+                $"Engine thrust     : {engineThrustDiagnostic:0.0} N\n" +
+                $"Breakaway factor  : {breakawayFactorDiagnostic:0.000}\n" +
+                $"Speed fade        : {speedFadeDiagnostic:0.000}\n" +
+                $"Applied thrust    : {AppliedThrust:0.0} N\n" +
+                $"Rolling resistance: {resistanceForceDiagnostic:0.0} N\n" +
+                $"Brake force       : {brakeForceDiagnostic:0.0} N\n" +
+                $"NET FORCE         : {netForceDiagnostic:0.0} N\n" +
+                $"Forward speed     : {Mathf.Max(0f, Vector3.Dot(Vector3.ProjectOnPlane(body.linearVelocity, Vector3.up), transform.TransformDirection(localForwardAxis.normalized))):0.000} m/s\n" +
+                $"Requested move    : {requestedMoveDiagnostic:0.00000} m/tick\n" +
+                $"Actual move       : {actualMoveDiagnostic:0.00000} m/tick\n" +
+                $"Grounded          : {IsGrounded}\n" +
+                $"Grounded wheels   : {groundedWheelCount}/{(wheels == null ? 0 : wheels.Length)}\n" +
+                $"WheelColliders on : {enabledWheelColliderCount}/{(wheels == null ? 0 : wheels.Length)}\n" +
+                $"Body ground probe : {bodyProbeGrounded}\n" +
+                $"Body kinematic    : {body.isKinematic}\n" +
+                $"Body sleeping     : {body.IsSleeping()}\n" +
+                $"Body constraints  : {body.constraints}\n" +
+                $"Body velocity     : {body.linearVelocity}\n" +
+                $"Body position     : {body.position}";
+        }
+
+        private void RepairLegacyTuning()
+        {
+            // Components created before v4 do not contain these serialized fields.
+            // Unity deserializes missing fields as zero rather than using field initializers.
+            if (idleThrust <= 0f) idleThrust = 420f;
+            if (maxGroundThrust <= 0f) maxGroundThrust = 4800f;
+            if (throttleResponseSpeed <= 0f) throttleResponseSpeed = 0.55f;
+            if (rollingResistance <= 0f) rollingResistance = 75f;
+            if (idleCreepSpeed <= 0f) idleCreepSpeed = 1.35f;
+            if (breakawayThrust <= 0f) breakawayThrust = 0.28f;
+            if (staticFrictionSoftness <= 0f) staticFrictionSoftness = 1.25f;
+            if (maximumTaxiSpeed < 18f) maximumTaxiSpeed = 21f;
+        }
+
+        private void ConfigureWheelsForSimplifiedGroundPhysics()
+        {
+            if (wheels == null) return;
+
+            PhysicsMaterial supportMaterial = new PhysicsMaterial("Aircraft Wheel Support")
             {
-                Vector3 clamped = planarVelocity.normalized * maximumTaxiSpeed * 1.08f;
-                body.linearVelocity = new Vector3(clamped.x, Mathf.Min(body.linearVelocity.y, 0f), clamped.z);
+                dynamicFriction = 0f,
+                staticFriction = 0f,
+                bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Minimum,
+                bounceCombine = PhysicsMaterialCombine.Minimum
+            };
+
+            foreach (WheelCollider wheel in wheels)
+            {
+                if (wheel == null) continue;
+
+                // Even at zero tire stiffness, Unity's vehicle solver constrained this
+                // imported +X-forward model. A simple sphere provides stable wheel-height
+                // support while our controller handles traction, braking and steering.
+                SphereCollider support = wheel.GetComponent<SphereCollider>();
+                if (support == null) support = wheel.gameObject.AddComponent<SphereCollider>();
+                support.radius = wheel.radius;
+                support.center = Vector3.down * 0.18f;
+                support.material = supportMaterial;
+                wheel.enabled = false;
             }
+
+            enabledWheelColliderCount = 0;
         }
 
         private bool HasGroundBelow(WheelCollider wheel)
         {
             Vector3 origin = wheel.transform.position + transform.up * 0.35f;
             RaycastHit[] hits = Physics.RaycastAll(origin, -transform.up, groundProbeDistance,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            foreach (RaycastHit hit in hits)
+            {
+                if (hit.collider != null && hit.collider.attachedRigidbody != body)
+                    return true;
+            }
+            return false;
+        }
+
+        private bool HasGroundBelowBody()
+        {
+            Vector3 origin = body.worldCenterOfMass + transform.up * 0.25f;
+            RaycastHit[] hits = Physics.RaycastAll(origin, -transform.up, bodyGroundProbeDistance,
                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
             foreach (RaycastHit hit in hits)
             {
