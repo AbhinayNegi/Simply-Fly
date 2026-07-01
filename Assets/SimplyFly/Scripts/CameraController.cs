@@ -21,12 +21,15 @@ namespace SimplyFly.GroundOps
 
         private float yaw;
         private float pitch;
-        private Vector3 smoothedTarget;
+        private Vector3 previousTargetPosition;
+        private Vector3 headingForward = Vector3.forward;
+        private bool targetPositionInitialized;
+        private Rigidbody targetBody;
 
         private void Start()
         {
-            ResetOrbit();
-            if (target != null) smoothedTarget = target.position;
+            if (target != null) targetBody = target.GetComponent<Rigidbody>();
+            SnapToTarget();
         }
 
         private void LateUpdate()
@@ -40,11 +43,32 @@ namespace SimplyFly.GroundOps
                 if (input.ResetCameraPressed) ResetOrbit();
             }
 
-            float targetBlend = 1f - Mathf.Exp(-movementSmoothing * Time.deltaTime);
-            smoothedTarget = Vector3.Lerp(smoothedTarget, target.position, targetBlend);
-            Quaternion orbit = Quaternion.Euler(pitch, yaw, 0f);
-            Vector3 focus = smoothedTarget + targetOffset - target.forward * cameraLag;
+            Vector3 targetPosition = target.position;
+            if (!targetPositionInitialized)
+            {
+                previousTargetPosition = targetPosition;
+                targetPositionInitialized = true;
+            }
+
+            // Inherit target translation immediately. Smoothing only the relative camera
+            // offset prevents follow error from growing with aircraft speed.
+            Vector3 targetDelta = targetPosition - previousTargetPosition;
+            transform.position += targetDelta;
+            previousTargetPosition = targetPosition;
+
+            Vector3 planarForward = Vector3.ProjectOnPlane(target.forward, Vector3.up);
+            if (planarForward.sqrMagnitude > 0.001f)
+                headingForward = planarForward.normalized;
+            Quaternion heading = Quaternion.LookRotation(headingForward, Vector3.up);
+            Quaternion orbit = heading * Quaternion.Euler(pitch, yaw, 0f);
+
+            Vector3 lagDirection = targetBody != null &&
+                                   targetBody.linearVelocity.sqrMagnitude > 0.1f
+                ? -targetBody.linearVelocity.normalized
+                : -headingForward;
+            Vector3 focus = targetPosition + targetOffset + lagDirection * cameraLag;
             Vector3 desiredPosition = focus + orbit * Vector3.back * followDistance + Vector3.up * followHeight;
+            float targetBlend = 1f - Mathf.Exp(-movementSmoothing * Time.deltaTime);
             transform.position = Vector3.Lerp(transform.position, desiredPosition, targetBlend);
 
             Quaternion desiredRotation = Quaternion.LookRotation(focus - transform.position, Vector3.up);
@@ -63,8 +87,15 @@ namespace SimplyFly.GroundOps
             ResetOrbit();
             if (target == null) return;
 
-            smoothedTarget = target.position;
-            Quaternion orbit = Quaternion.Euler(pitch, yaw, 0f);
+            targetBody = target.GetComponent<Rigidbody>();
+            previousTargetPosition = target.position;
+            targetPositionInitialized = true;
+            Vector3 planarForward = Vector3.ProjectOnPlane(target.forward, Vector3.up);
+            headingForward = planarForward.sqrMagnitude > 0.001f
+                ? planarForward.normalized
+                : Vector3.forward;
+            Quaternion heading = Quaternion.LookRotation(headingForward, Vector3.up);
+            Quaternion orbit = heading * Quaternion.Euler(pitch, yaw, 0f);
             Vector3 focus = target.position + targetOffset;
             transform.position =
                 focus + orbit * Vector3.back * followDistance + Vector3.up * followHeight;

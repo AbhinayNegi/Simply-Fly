@@ -12,7 +12,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private WheelCollider[] wheels;
 
         [Header("Ground movement")]
-        [SerializeField] private Vector3 localForwardAxis = Vector3.right;
+        [SerializeField] private Vector3 localForwardAxis = Vector3.forward;
         [Tooltip("Propeller thrust available at engine idle.")]
         [Min(0f)] [SerializeField] private float idleThrust = 420f;
         [FormerlySerializedAs("maximumDriveForce")]

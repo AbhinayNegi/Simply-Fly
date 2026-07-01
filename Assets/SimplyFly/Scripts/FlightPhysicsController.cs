@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SimplyFly.GroundOps
 {
@@ -20,8 +21,9 @@ namespace SimplyFly.GroundOps
         [SerializeField] private Transform[] groundCheckPoints;
 
         [Header("Model axes")]
-        [SerializeField] private Vector3 localForwardAxis = Vector3.right;
-        [SerializeField] private Vector3 localPitchAxis = Vector3.forward;
+        [SerializeField] private Vector3 localForwardAxis = Vector3.forward;
+        [Tooltip("Negative local X makes positive elevator input pitch the +Z nose upward.")]
+        [SerializeField] private Vector3 localPitchAxis = Vector3.left;
 
         [Header("Lift")]
         [SerializeField] private AnimationCurve liftCurve = new AnimationCurve(
@@ -56,10 +58,28 @@ namespace SimplyFly.GroundOps
             new Keyframe(0.85f, 0.72f),
             new Keyframe(1f, 1f),
             new Keyframe(1.5f, 1.18f));
-        [Tooltip("Natural angle of attack sought with neutral elevator.")]
-        [Range(-2f, 10f)] [SerializeField] private float stableAngleOfAttack = 3f;
+        [FormerlySerializedAs("stableAngleOfAttack")]
+        [Tooltip("Gentle equilibrium angle of attack with neutral elevator.")]
+        [Range(-2f, 5f)] [SerializeField] private float neutralAoA = 0.75f;
+        [Tooltip("AoA error ignored by aerodynamic pitch stability.")]
+        [Range(0f, 3f)] [SerializeField] private float aoADeadband = 0.5f;
         [Tooltip("Strength of the restoring moment toward stable angle of attack.")]
         [Min(0f)] [SerializeField] private float aerodynamicPitchStability = 0.085f;
+        [Tooltip("Maximum aerodynamic stability moment, preserving elevator authority.")]
+        [Min(0f)] [SerializeField] private float maxStabilityMoment = 0.45f;
+        [Header("Virtual horizontal tail")]
+        [Tooltip("Distance behind the center of mass where tail force is applied.")]
+        [Min(0.1f)] [SerializeField] private float virtualTailArm = 2.7f;
+        [Tooltip("Tail force per degree of effective AoA and speed squared.")]
+        [Min(0f)] [SerializeField] private float tailStability = 0.42f;
+        [Tooltip("Pitch-rate contribution to effective tail AoA, in seconds.")]
+        [Min(0f)] [SerializeField] private float tailPitchRateInfluence = 0.32f;
+        [Tooltip("Maximum corrective tail force.")]
+        [Min(0f)] [SerializeField] private float maxTailForce = 1700f;
+        [Tooltip("Additional neutral AoA requested per degree of descending flight path.")]
+        [Range(0f, 1f)] [SerializeField] private float descentRecoveryAoAInfluence = 0.32f;
+        [Tooltip("Maximum neutral AoA used for descent recovery.")]
+        [Range(1f, 12f)] [SerializeField] private float maxDescentRecoveryAoA = 6f;
         [Tooltip("Soft restoring strength above the runway rotation limit.")]
         [Min(0f)] [SerializeField] private float runwayPitchLimitStrength = 0.65f;
         [Tooltip("Broad airborne pitch safety limit; not a target attitude.")]
@@ -88,6 +108,9 @@ namespace SimplyFly.GroundOps
         public float ElevatorInput { get; private set; }
         public float ElevatorDeflection => smoothedElevator;
         public float PitchMoment { get; private set; }
+        public float TailForce { get; private set; }
+        public float FlightPathAngle { get; private set; }
+        public float DynamicNeutralAoA { get; private set; }
         public bool IsPhysicallyGrounded { get; private set; }
         public float VerticalSpeed { get; private set; }
         public float DragForce { get; private set; }
@@ -117,6 +140,11 @@ namespace SimplyFly.GroundOps
 
             Airspeed = velocity.magnitude;
             VerticalSpeed = Vector3.Dot(velocity, Vector3.up);
+            FlightPathAngle = Airspeed > 0.1f
+                ? Mathf.Asin(Mathf.Clamp(
+                    Vector3.Dot(velocity.normalized, Vector3.up), -1f, 1f)) *
+                  Mathf.Rad2Deg
+                : 0f;
             PitchAngle = Mathf.Asin(Mathf.Clamp(Vector3.Dot(forward, Vector3.up), -1f, 1f)) * Mathf.Rad2Deg;
             AngleOfAttack = CalculateAngleOfAttack(velocity, forward);
             ElevatorInput = input == null ? 0f : input.ElevatorInput;
@@ -141,7 +169,14 @@ namespace SimplyFly.GroundOps
                 ApplyAirborneThrust(forward);
 
             if (State == AircraftState.Airborne)
+            {
+                ApplyVirtualTail(forward, pitchAxis);
                 ApplyAirborneStability(forward, pitchAxis);
+            }
+            else
+            {
+                TailForce = 0f;
+            }
         }
 
         private void ApplyLift(Vector3 velocity, Vector3 pitchAxis)
@@ -197,12 +232,23 @@ namespace SimplyFly.GroundOps
                 ? smoothedElevator * elevatorAuthority * speedAuthority
                 : 0f;
             float dampingMoment = -pitchRate * pitchDamping;
-            float stabilityTargetAoA =
-                State == AircraftState.Airborne ? stableAngleOfAttack : 0f;
-            float stabilityMoment = pitchAllowed
-                ? -(AngleOfAttack - stabilityTargetAoA) *
-                  aerodynamicPitchStability * speedAuthority
-                : 0f;
+            float stabilityTargetAoA = 0f;
+            float aoaError = AngleOfAttack - stabilityTargetAoA;
+            float stabilityMoment = 0f;
+            if (pitchAllowed && State != AircraftState.Airborne &&
+                Mathf.Abs(aoaError) >= aoADeadband)
+            {
+                float rawStabilityMoment =
+                    -aoaError * aerodynamicPitchStability * speedAuthority;
+                stabilityMoment = Mathf.Clamp(
+                    rawStabilityMoment, -maxStabilityMoment, maxStabilityMoment);
+
+                float elevatorFadeProgress = Mathf.InverseLerp(
+                    0.05f, 0.45f, Mathf.Abs(smoothedElevator));
+                float elevatorFade = 1f - Mathf.SmoothStep(
+                    0f, 1f, elevatorFadeProgress);
+                stabilityMoment *= elevatorFade;
+            }
             float limitMoment = 0f;
 
             if (State != AircraftState.Airborne)
@@ -234,6 +280,39 @@ namespace SimplyFly.GroundOps
 
             PitchMoment = commandMoment + dampingMoment + stabilityMoment + limitMoment;
             body.AddTorque(pitchAxis * PitchMoment, ForceMode.Acceleration);
+        }
+
+        private void ApplyVirtualTail(Vector3 forward, Vector3 pitchAxis)
+        {
+            float pitchRateDegrees =
+                Vector3.Dot(body.angularVelocity, pitchAxis) * Mathf.Rad2Deg;
+            DynamicNeutralAoA = Mathf.Clamp(
+                neutralAoA +
+                Mathf.Max(0f, -FlightPathAngle) * descentRecoveryAoAInfluence,
+                neutralAoA,
+                maxDescentRecoveryAoA);
+            float effectiveAoAError =
+                AngleOfAttack - DynamicNeutralAoA +
+                pitchRateDegrees * tailPitchRateInfluence;
+
+            float errorMagnitude = Mathf.Max(
+                0f, Mathf.Abs(effectiveAoAError) - aoADeadband);
+            float softenedError = Mathf.Sign(effectiveAoAError) * errorMagnitude;
+            float elevatorDominance = Mathf.SmoothStep(
+                0f, 1f,
+                Mathf.InverseLerp(0.1f, 0.75f, Mathf.Abs(smoothedElevator)));
+            float stabilityBlend = Mathf.Lerp(1f, 0.3f, elevatorDominance);
+
+            TailForce = Mathf.Clamp(
+                softenedError * tailStability * Airspeed * Airspeed * stabilityBlend,
+                -maxTailForce,
+                maxTailForce);
+
+            Vector3 tailPosition = body.worldCenterOfMass - forward * virtualTailArm;
+            body.AddForceAtPosition(
+                transform.up * TailForce,
+                tailPosition,
+                ForceMode.Force);
         }
 
         private void ApplyAirborneThrust(Vector3 forward)
@@ -339,7 +418,7 @@ namespace SimplyFly.GroundOps
                 AircraftState.GroundRoll =>
                     RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ,
                 AircraftState.Rotating =>
-                    RigidbodyConstraints.FreezeRotationX,
+                    RigidbodyConstraints.FreezeRotationZ,
                 _ => RigidbodyConstraints.None
             };
         }
@@ -368,6 +447,17 @@ namespace SimplyFly.GroundOps
                     new Keyframe(1.5f, 1.18f));
             }
             if (aerodynamicPitchStability <= 0f) aerodynamicPitchStability = 0.085f;
+            if (neutralAoA >= 2.5f) neutralAoA = 0.75f;
+            if (aoADeadband <= 0f) aoADeadband = 0.5f;
+            if (maxStabilityMoment <= 0f) maxStabilityMoment = 0.45f;
+            if (virtualTailArm <= 0f) virtualTailArm = 2.7f;
+            if (tailStability <= 0f) tailStability = 0.42f;
+            if (tailPitchRateInfluence <= 0f) tailPitchRateInfluence = 0.32f;
+            if (maxTailForce <= 0f) maxTailForce = 1700f;
+            if (descentRecoveryAoAInfluence <= 0f)
+                descentRecoveryAoAInfluence = 0.32f;
+            if (maxDescentRecoveryAoA <= neutralAoA)
+                maxDescentRecoveryAoA = 6f;
             if (runwayPitchLimitStrength <= 0f) runwayPitchLimitStrength = 0.65f;
             if (maxAirbornePitchAngle <= 0f) maxAirbornePitchAngle = 45f;
             if (airborneSafetyStrength <= 0f) airborneSafetyStrength = 0.18f;
@@ -383,6 +473,9 @@ namespace SimplyFly.GroundOps
             AngleOfAttack = 0f;
             ElevatorInput = 0f;
             PitchMoment = 0f;
+            TailForce = 0f;
+            FlightPathAngle = 0f;
+            DynamicNeutralAoA = neutralAoA;
             VerticalSpeed = 0f;
             DragForce = 0f;
             smoothedElevator = 0f;

@@ -11,34 +11,35 @@ namespace SimplyFly.Editor
     [InitializeOnLoad]
     public static class GroundOperationsSceneSetup
     {
-        private const string SetupMarkerName = "Sprint 2 - Takeoff Physics v4";
+        private const string SetupMarkerName = "Sprint 2 - Camera Follow v1";
 
         static GroundOperationsSceneSetup()
         {
             EditorApplication.delayCall += TryInitialSetup;
         }
 
-        [MenuItem("Simply Fly/Build Sprint 1 Ground Operations Scene")]
+        [MenuItem("Simply Fly/Build Aircraft Scene")]
         public static void BuildScene()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
 
-            GameObject aircraft = FindAircraft();
-            if (aircraft == null)
+            GameObject aircraftVisual = FindAircraft();
+            if (aircraftVisual == null)
             {
                 Debug.LogError("Simply Fly: Piper M350 aircraft was not found in the open scene.");
                 return;
             }
 
-            Undo.SetCurrentGroupName("Build Simply Fly Sprint 1");
+            Undo.SetCurrentGroupName("Build Simply Fly Aircraft");
             CreateAirport();
-            ConfigureAircraft(aircraft);
-            ConfigureCamera(aircraft);
+            GameObject aircraftRoot = EnsureStandardAircraftRoot(aircraftVisual);
+            ConfigureAircraft(aircraftRoot, aircraftVisual);
+            ConfigureCamera(aircraftRoot);
             CreateMarker();
 
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
             EditorSceneManager.SaveOpenScenes();
-            Debug.Log("Simply Fly: Sprint 1 ground operations scene is ready. Press Play, then E to start.");
+            Debug.Log("Simply Fly: standard +Z-forward aircraft root is ready.");
         }
 
         private static void TryInitialSetup()
@@ -55,6 +56,67 @@ namespace SimplyFly.Editor
         {
             return Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                 .FirstOrDefault(go => go.name.StartsWith("Piper M350"));
+        }
+
+        private static GameObject EnsureStandardAircraftRoot(GameObject visual)
+        {
+            GameObject root = GameObject.Find("AircraftRoot");
+            if (root == null)
+            {
+                root = new GameObject("AircraftRoot");
+                Undo.RegisterCreatedObjectUndo(root, "Create standard aircraft root");
+            }
+
+            root.transform.SetPositionAndRotation(
+                new Vector3(-520f, 1.73f, 0f),
+                Quaternion.Euler(0f, 90f, 0f));
+            visual.transform.SetParent(root.transform, false);
+            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            visual.transform.localScale = Vector3.one;
+
+            RemoveLegacySystemsFromVisual(visual);
+            return root;
+        }
+
+        private static void RemoveLegacySystemsFromVisual(GameObject visual)
+        {
+            DestroyComponent<UIController>(visual);
+            DestroyComponent<AircraftResetController>(visual);
+            DestroyComponent<FlightPhysicsController>(visual);
+            DestroyComponent<WheelVisualController>(visual);
+            DestroyComponent<EngineAudioController>(visual);
+            DestroyComponent<PropellerController>(visual);
+            DestroyComponent<GroundMovementController>(visual);
+            DestroyComponent<SteeringController>(visual);
+            DestroyComponent<BrakeController>(visual);
+            DestroyComponent<EngineController>(visual);
+            DestroyComponent<ThrottleController>(visual);
+            DestroyComponent<AircraftInput>(visual);
+            DestroyComponent<AudioSource>(visual);
+            DestroyComponent<BoxCollider>(visual);
+            DestroyComponent<Rigidbody>(visual);
+
+            MeshCollider meshCollider = visual.GetComponent<MeshCollider>();
+            if (meshCollider != null) meshCollider.enabled = false;
+
+            string[] legacyChildren =
+            {
+                "Left Main Wheel Collider",
+                "Right Main Wheel Collider",
+                "Nose Wheel Collider"
+            };
+            foreach (string childName in legacyChildren)
+            {
+                Transform child = visual.transform.Find(childName);
+                if (child != null) Undo.DestroyObjectImmediate(child.gameObject);
+            }
+        }
+
+        private static void DestroyComponent<T>(GameObject target) where T : Component
+        {
+            T component = target.GetComponent<T>();
+            if (component != null) Undo.DestroyObjectImmediate(component);
         }
 
         private static void CreateAirport()
@@ -78,9 +140,11 @@ namespace SimplyFly.Editor
                 new Vector3(1160f, 0.02f, 0.28f), Color.white, false);
         }
 
-        private static void ConfigureAircraft(GameObject aircraft)
+        private static void ConfigureAircraft(GameObject aircraft, GameObject visual)
         {
-            aircraft.transform.SetPositionAndRotation(new Vector3(-520f, 1.73f, 0f), Quaternion.identity);
+            aircraft.transform.SetPositionAndRotation(
+                new Vector3(-520f, 1.73f, 0f),
+                Quaternion.Euler(0f, 90f, 0f));
 
             Rigidbody body = GetOrAdd<Rigidbody>(aircraft);
             body.mass = 1200f;
@@ -89,25 +153,31 @@ namespace SimplyFly.Editor
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
             body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-            body.centerOfMass = new Vector3(-0.2f, -0.45f, 0f);
+            body.centerOfMass = new Vector3(0f, -0.45f, -0.2f);
 
-            MeshCollider oldCollider = aircraft.GetComponent<MeshCollider>();
+            MeshCollider oldCollider = visual.GetComponent<MeshCollider>();
             if (oldCollider != null) oldCollider.enabled = false;
             BoxCollider fuselage = GetOrAdd<BoxCollider>(aircraft);
-            fuselage.center = new Vector3(-0.25f, 0.05f, 0f);
-            fuselage.size = new Vector3(6.6f, 1.75f, 1.65f);
+            fuselage.center = new Vector3(0f, 0.05f, -0.25f);
+            fuselage.size = new Vector3(1.65f, 1.75f, 6.6f);
 
-            Transform leftVisual = FindChild(aircraft.transform, "Wheel1.002");
-            Transform rightVisual = FindChild(aircraft.transform, "Wheel2.002");
-            Transform noseVisual = FindChild(aircraft.transform, "Wheel3.002");
-            Transform propeller = FindChild(aircraft.transform, "propeller");
+            Transform leftVisual = FindChild(visual.transform, "Wheel1.002");
+            Transform rightVisual = FindChild(visual.transform, "Wheel2.002");
+            Transform noseVisual = FindChild(visual.transform, "Wheel3.002");
+            Transform propeller = FindChild(visual.transform, "propeller");
 
             WheelCollider left = CreateWheelCollider(aircraft.transform, "Left Main Wheel Collider",
-                leftVisual != null ? leftVisual.localPosition : new Vector3(-0.2f, -1.53f, -2.88f), false);
+                ModelToRootPosition(leftVisual != null
+                    ? leftVisual.localPosition
+                    : new Vector3(-0.2f, -1.53f, -2.88f)), false);
             WheelCollider right = CreateWheelCollider(aircraft.transform, "Right Main Wheel Collider",
-                rightVisual != null ? rightVisual.localPosition : new Vector3(-0.2f, -1.53f, 2.88f), false);
+                ModelToRootPosition(rightVisual != null
+                    ? rightVisual.localPosition
+                    : new Vector3(-0.2f, -1.53f, 2.88f)), false);
             WheelCollider nose = CreateWheelCollider(aircraft.transform, "Nose Wheel Collider",
-                noseVisual != null ? noseVisual.localPosition : new Vector3(2.58f, -1.48f, 0f), true);
+                ModelToRootPosition(noseVisual != null
+                    ? noseVisual.localPosition
+                    : new Vector3(2.58f, -1.48f, 0f)), true);
             WheelCollider[] wheels = { left, right, nose };
 
             AircraftInput input = GetOrAdd<AircraftInput>(aircraft);
@@ -134,10 +204,12 @@ namespace SimplyFly.Editor
             SetObject(steering, "aircraftBody", body);
             SetObject(steering, "movement", movement);
             SetObject(steering, "flightPhysics", flightPhysics);
+            SetVector3(steering, "localForwardAxis", Vector3.forward);
             SetObject(movement, "engine", engine);
             SetObject(movement, "throttle", throttle);
             SetObject(movement, "brakes", brakes);
             SetArray(movement, "wheels", wheels);
+            SetVector3(movement, "localForwardAxis", Vector3.forward);
             SetFloat(movement, "idleThrust", 420f);
             SetFloat(movement, "maxGroundThrust", 4800f);
             SetFloat(movement, "throttleResponseSpeed", 0.55f);
@@ -152,6 +224,8 @@ namespace SimplyFly.Editor
             SetObject(flightPhysics, "groundMovement", movement);
             SetArray(flightPhysics, "groundCheckPoints",
                 new Object[] { left.transform, right.transform, nose.transform });
+            SetVector3(flightPhysics, "localForwardAxis", Vector3.forward);
+            SetVector3(flightPhysics, "localPitchAxis", Vector3.left);
             SetFloat(flightPhysics, "takeoffSpeed", 19.5f);
             SetFloat(flightPhysics, "maxLiftForce", 16500f);
             SetFloat(flightPhysics, "pitchLiftInfluence", 0.38f);
@@ -163,8 +237,16 @@ namespace SimplyFly.Editor
             SetFloat(flightPhysics, "elevatorReturnSpeed", 3f);
             SetFloat(flightPhysics, "pitchDamping", 3.2f);
             SetFloat(flightPhysics, "maxRotationPitchAngle", 9f);
-            SetFloat(flightPhysics, "stableAngleOfAttack", 3f);
+            SetFloat(flightPhysics, "neutralAoA", 0.75f);
+            SetFloat(flightPhysics, "aoADeadband", 0.5f);
             SetFloat(flightPhysics, "aerodynamicPitchStability", 0.085f);
+            SetFloat(flightPhysics, "maxStabilityMoment", 0.45f);
+            SetFloat(flightPhysics, "virtualTailArm", 2.7f);
+            SetFloat(flightPhysics, "tailStability", 0.42f);
+            SetFloat(flightPhysics, "tailPitchRateInfluence", 0.32f);
+            SetFloat(flightPhysics, "maxTailForce", 1700f);
+            SetFloat(flightPhysics, "descentRecoveryAoAInfluence", 0.32f);
+            SetFloat(flightPhysics, "maxDescentRecoveryAoA", 6f);
             SetFloat(flightPhysics, "runwayPitchLimitStrength", 0.65f);
             SetFloat(flightPhysics, "maxAirbornePitchAngle", 45f);
             SetFloat(flightPhysics, "airborneSafetyStrength", 0.18f);
@@ -173,6 +255,7 @@ namespace SimplyFly.Editor
             SetFloat(flightPhysics, "aerodynamicDrag", 2.2f);
             SetObject(propellerController, "engine", engine);
             SetObject(propellerController, "propeller", propeller);
+            SetFloat(propellerController, "blurStartRPM", 600f);
             SetInt(propellerController, "blurCopyCount", 12);
             SetFloat(propellerController, "blurCopyOpacity", 0.055f);
             SetFloat(propellerController, "minimumBlurVisualSpeed", 180f);
@@ -210,7 +293,7 @@ namespace SimplyFly.Editor
             CameraController controller = GetOrAdd<CameraController>(camera.gameObject);
             SetObject(controller, "target", aircraft.transform);
             SetObject(controller, "input", aircraft.GetComponent<AircraftInput>());
-            SetFloat(controller, "defaultYaw", 90f);
+            SetFloat(controller, "defaultYaw", 0f);
             camera.transform.SetPositionAndRotation(aircraft.transform.position + new Vector3(-13f, 6f, 0f),
                 Quaternion.LookRotation(new Vector3(1f, -0.25f, 0f)));
         }
@@ -219,7 +302,7 @@ namespace SimplyFly.Editor
         {
             GameObject go = FindOrCreateChild(parent, name);
             go.transform.localPosition = localPosition + Vector3.up * 0.18f;
-            go.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            go.transform.localRotation = Quaternion.identity;
             WheelCollider wheel = GetOrAdd<WheelCollider>(go);
             wheel.radius = nose ? 0.18f : 0.22f;
             wheel.mass = nose ? 25f : 40f;
@@ -239,6 +322,13 @@ namespace SimplyFly.Editor
             sideways.stiffness = 0f;
             wheel.sidewaysFriction = sideways;
             return wheel;
+        }
+
+        private static Vector3 ModelToRootPosition(Vector3 modelPosition)
+        {
+            // Piper visual: +X forward, +Z wing axis.
+            // Standard root: +Z forward, +X right.
+            return new Vector3(-modelPosition.z, modelPosition.y, modelPosition.x);
         }
 
         private static void ConfigureWheelVisuals(WheelVisualController controller, WheelCollider[] colliders,
@@ -323,6 +413,13 @@ namespace SimplyFly.Editor
         {
             SerializedObject serialized = new SerializedObject(target);
             serialized.FindProperty(field).floatValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetVector3(Object target, string field, Vector3 value)
+        {
+            SerializedObject serialized = new SerializedObject(target);
+            serialized.FindProperty(field).vector3Value = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

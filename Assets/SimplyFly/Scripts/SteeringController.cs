@@ -9,7 +9,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private Rigidbody aircraftBody;
         [SerializeField] private GroundMovementController movement;
         [SerializeField] private FlightPhysicsController flightPhysics;
-        [SerializeField] private Vector3 localForwardAxis = Vector3.right;
+        [SerializeField] private Vector3 localForwardAxis = Vector3.forward;
         [Header("Steering")]
         [Range(1f, 60f)] [SerializeField] private float maximumSteeringAngle = 32f;
         [Min(1f)] [SerializeField] private float steeringSpeed = 75f;

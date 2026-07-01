@@ -44,9 +44,12 @@ namespace SimplyFly.GroundOps
                 $"({(flightPhysics == null ? 0f : flightPhysics.LiftPercentOfWeight):0}%)\n" +
                 $"Pitch          {(flightPhysics == null ? 0f : flightPhysics.PitchAngle):+0.0;-0.0;0.0} deg\n" +
                 $"Angle of Attack {(flightPhysics == null ? 0f : flightPhysics.AngleOfAttack):+0.0;-0.0;0.0} deg\n" +
+                $"Flight Path     {(flightPhysics == null ? 0f : flightPhysics.FlightPathAngle):+0.0;-0.0;0.0} deg\n" +
+                $"Neutral AoA     {(flightPhysics == null ? 0f : flightPhysics.DynamicNeutralAoA):0.0} deg\n" +
                 $"Elevator Input {(flightPhysics == null ? 0f : flightPhysics.ElevatorInput):+0.00;-0.00;0.00}\n" +
                 $"Elevator Defl. {(flightPhysics == null ? 0f : flightPhysics.ElevatorDeflection):+0.00;-0.00;0.00}\n" +
                 $"Pitch Moment   {(flightPhysics == null ? 0f : flightPhysics.PitchMoment):+0.00;-0.00;0.00}\n" +
+                $"Tail Force     {(flightPhysics == null ? 0f : flightPhysics.TailForce):+0;-0;0} N\n" +
                 $"Grounded       {(flightPhysics != null && flightPhysics.IsPhysicallyGrounded ? "Yes" : "No")}\n" +
                 $"Vertical Speed {(flightPhysics == null ? 0f : flightPhysics.VerticalSpeed):+0.00;-0.00;0.00} m/s\n" +
                 $"Drag           {(flightPhysics == null ? 0f : flightPhysics.DragForce):0} N\n" +
@@ -56,9 +59,9 @@ namespace SimplyFly.GroundOps
                 "S/Down Nose Up | W/Up Nose Down | Space Brake\n" +
                 "RMB Orbit | R Reset Camera";
 
-            GUI.Box(new Rect(panelPosition.x, panelPosition.y, 410f, 515f), text, style);
+            GUI.Box(new Rect(panelPosition.x, panelPosition.y, 410f, 575f), text, style);
             if (GUI.Button(
-                    new Rect(panelPosition.x, panelPosition.y + 525f, 200f, 42f),
+                    new Rect(panelPosition.x, panelPosition.y + 585f, 200f, 42f),
                     "RESET AIRCRAFT (Backspace)"))
             {
                 resetController?.ResetAircraft();

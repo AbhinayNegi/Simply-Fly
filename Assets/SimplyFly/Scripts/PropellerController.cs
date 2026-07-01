@@ -11,7 +11,7 @@ namespace SimplyFly.GroundOps
         [Tooltip("Visual rotation multiplier. Lower this if the propeller aliases on screen.")]
         [Min(0.01f)] [SerializeField] private float rotationScale = 1f;
         [Header("High RPM blur")]
-        [Min(0f)] [SerializeField] private float blurStartRPM = 1200f;
+        [Min(0f)] [SerializeField] private float blurStartRPM = 600f;
         [Range(4, 24)] [SerializeField] private int blurCopyCount = 12;
         [Range(0.01f, 0.5f)] [SerializeField] private float blurCopyOpacity = 0.055f;
         [Tooltip("Visible blur rotation at the blur threshold, in degrees per second.")]
