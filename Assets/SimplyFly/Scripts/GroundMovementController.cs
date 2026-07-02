@@ -17,19 +17,30 @@ namespace SimplyFly.GroundOps
         [Min(0f)] [SerializeField] private float idleThrust = 420f;
         [FormerlySerializedAs("maximumDriveForce")]
         [Tooltip("Additional propeller thrust available at full throttle.")]
-        [Min(0f)] [SerializeField] private float maxGroundThrust = 4800f;
+        [Min(0f)] [SerializeField] private float maxGroundThrust = 3000f;
         [Tooltip("How quickly movement throttle catches the commanded throttle.")]
-        [Min(0.01f)] [SerializeField] private float throttleResponseSpeed = 0.55f;
-        [Tooltip("Metres per second. 21 m/s is roughly 41 knots.")]
-        [Min(1f)] [SerializeField] private float maximumTaxiSpeed = 21f;
+        [Min(0.01f)] [SerializeField] private float throttleResponseSpeed = 0.4f;
+        [Tooltip("Metres per second. 34 m/s is roughly 66 knots.")]
+        [Min(1f)] [SerializeField] private float maximumTaxiSpeed = 34f;
+        [Tooltip("Maps throttle to the fraction between idle-creep and maximum ground speed.")]
+        [SerializeField] private AnimationCurve speedLimitThrottleCurve =
+            new AnimationCurve(
+                new Keyframe(0f, 0f),
+                new Keyframe(0.25f, 0.13f),
+                new Keyframe(0.5f, 0.38f),
+                new Keyframe(0.75f, 0.7f),
+                new Keyframe(1f, 1f));
+        [Range(0.5f, 0.98f)] [SerializeField] private float speedFadeStartRatio = 0.9f;
         [Tooltip("Gentle force opposing motion when brakes are released.")]
-        [Min(0f)] [SerializeField] private float rollingResistance = 75f;
+        [Min(0f)] [SerializeField] private float rollingResistance = 70f;
+        [Tooltip("Speed over which normal rolling resistance builds to full strength.")]
+        [Min(0.05f)] [SerializeField] private float rollingResistanceBuildSpeed = 0.75f;
         [Tooltip("Stable idle creep speed in metres per second.")]
-        [Min(0.1f)] [SerializeField] private float idleCreepSpeed = 1.35f;
+        [Min(0.1f)] [SerializeField] private float idleCreepSpeed = 1.8f;
         [Tooltip("Fraction of thrust retained at a standstill for soft breakaway.")]
-        [Range(0.05f, 1f)] [SerializeField] private float breakawayThrust = 0.28f;
+        [Range(0.05f, 1f)] [SerializeField] private float breakawayThrust = 0.18f;
         [Tooltip("Speed range over which static friction fades away.")]
-        [Min(0.05f)] [SerializeField] private float staticFrictionSoftness = 1.25f;
+        [Min(0.05f)] [SerializeField] private float staticFrictionSoftness = 2.5f;
         [Min(0f)] [SerializeField] private float lateralGrip = 2.5f;
         [Min(0f)] [SerializeField] private float groundHoldForce = 2500f;
         [Tooltip("Fallback ground probe below each wheel, used while suspension is fully compressed.")]
@@ -43,6 +54,7 @@ namespace SimplyFly.GroundOps
         public float SmoothedThrottle => smoothedThrottle;
         public float AppliedThrust { get; private set; }
         public float CurrentEngineThrust => engineThrustDiagnostic;
+        public float GroundAcceleration { get; private set; }
         public bool FlightTransitionActive { get; private set; }
         public bool FlightWheelsGrounded { get; private set; } = true;
 
@@ -63,6 +75,7 @@ namespace SimplyFly.GroundOps
         private Vector3 previousPhysicsPosition;
         private bool hasPreviousPhysicsPosition;
         private int enabledWheelColliderCount;
+        private float previousGroundSpeed;
 
         private void Awake()
         {
@@ -85,6 +98,9 @@ namespace SimplyFly.GroundOps
 
             Vector3 planarVelocity = Vector3.ProjectOnPlane(body.linearVelocity, Vector3.up);
             GroundSpeed = planarVelocity.magnitude;
+            GroundAcceleration =
+                (GroundSpeed - previousGroundSpeed) / Time.fixedDeltaTime;
+            previousGroundSpeed = GroundSpeed;
             IsGrounded = false;
             groundedWheelCount = 0;
 
@@ -122,18 +138,25 @@ namespace SimplyFly.GroundOps
                 0f, 1f, Mathf.Clamp01(forwardSpeed / staticFrictionSoftness));
             float breakawayFactor = Mathf.Lerp(breakawayThrust, 1f, breakawayProgress);
             breakawayFactorDiagnostic = breakawayFactor;
-            float speedLimit = Mathf.Lerp(idleCreepSpeed, maximumTaxiSpeed, smoothedThrottle);
+            float speedLimitFraction = Mathf.Clamp01(
+                speedLimitThrottleCurve.Evaluate(smoothedThrottle));
+            float speedLimit = Mathf.Lerp(
+                idleCreepSpeed,
+                maximumTaxiSpeed,
+                speedLimitFraction);
             float speedFadeProgress = Mathf.InverseLerp(
-                speedLimit * 0.72f, speedLimit, forwardSpeed);
+                speedLimit * speedFadeStartRatio, speedLimit, forwardSpeed);
             float speedFade = 1f - Mathf.SmoothStep(0f, 1f, speedFadeProgress);
             speedFade = Mathf.Clamp01(speedFade);
             speedFadeDiagnostic = speedFade;
             float appliedThrust = IsGrounded ? engineThrust * breakawayFactor * speedFade : 0f;
             AppliedThrust = appliedThrust;
 
-            float movingFactor = Mathf.Clamp01(GroundSpeed / 0.15f);
-            float resistanceForce = rollingResistance * movingFactor;
-            float appliedBrakeForce = brakeForce * movingFactor;
+            float resistanceMovingFactor = Mathf.Clamp01(
+                GroundSpeed / rollingResistanceBuildSpeed);
+            float brakeMovingFactor = Mathf.Clamp01(GroundSpeed / 0.15f);
+            float resistanceForce = rollingResistance * resistanceMovingFactor;
+            float appliedBrakeForce = brakeForce * brakeMovingFactor;
             float netForce = appliedThrust - resistanceForce - appliedBrakeForce;
             resistanceForceDiagnostic = resistanceForce;
             brakeForceDiagnostic = appliedBrakeForce;
@@ -178,6 +201,8 @@ namespace SimplyFly.GroundOps
             requestedMoveDiagnostic = 0f;
             actualMoveDiagnostic = 0f;
             hasPreviousPhysicsPosition = false;
+            previousGroundSpeed = 0f;
+            GroundAcceleration = 0f;
         }
 
         public string GetDiagnostics()
@@ -206,6 +231,7 @@ namespace SimplyFly.GroundOps
                 $"Requested move    : {requestedMoveDiagnostic:0.00000} m/tick\n" +
                 $"Actual move       : {actualMoveDiagnostic:0.00000} m/tick\n" +
                 $"Grounded          : {IsGrounded}\n" +
+                $"Ground acceleration: {GroundAcceleration:+0.00;-0.00;0.00} m/s2\n" +
                 $"Grounded wheels   : {groundedWheelCount}/{(wheels == null ? 0 : wheels.Length)}\n" +
                 $"WheelColliders on : {enabledWheelColliderCount}/{(wheels == null ? 0 : wheels.Length)}\n" +
                 $"Body ground probe : {bodyProbeGrounded}\n" +
@@ -221,13 +247,25 @@ namespace SimplyFly.GroundOps
             // Components created before v4 do not contain these serialized fields.
             // Unity deserializes missing fields as zero rather than using field initializers.
             if (idleThrust <= 0f) idleThrust = 420f;
-            if (maxGroundThrust <= 0f) maxGroundThrust = 4800f;
-            if (throttleResponseSpeed <= 0f) throttleResponseSpeed = 0.55f;
-            if (rollingResistance <= 0f) rollingResistance = 75f;
-            if (idleCreepSpeed <= 0f) idleCreepSpeed = 1.35f;
-            if (breakawayThrust <= 0f) breakawayThrust = 0.28f;
-            if (staticFrictionSoftness <= 0f) staticFrictionSoftness = 1.25f;
-            if (maximumTaxiSpeed < 18f) maximumTaxiSpeed = 21f;
+            if (maxGroundThrust <= 0f) maxGroundThrust = 3000f;
+            if (throttleResponseSpeed <= 0f) throttleResponseSpeed = 0.4f;
+            if (rollingResistance <= 0f) rollingResistance = 70f;
+            if (rollingResistanceBuildSpeed <= 0f)
+                rollingResistanceBuildSpeed = 0.75f;
+            if (idleCreepSpeed <= 0f) idleCreepSpeed = 1.8f;
+            if (breakawayThrust <= 0f) breakawayThrust = 0.18f;
+            if (staticFrictionSoftness <= 0f) staticFrictionSoftness = 2.5f;
+            if (maximumTaxiSpeed < 25f) maximumTaxiSpeed = 34f;
+            if (speedLimitThrottleCurve == null || speedLimitThrottleCurve.length == 0)
+            {
+                speedLimitThrottleCurve = new AnimationCurve(
+                    new Keyframe(0f, 0f),
+                    new Keyframe(0.25f, 0.13f),
+                    new Keyframe(0.5f, 0.38f),
+                    new Keyframe(0.75f, 0.7f),
+                    new Keyframe(1f, 1f));
+            }
+            if (speedFadeStartRatio <= 0f) speedFadeStartRatio = 0.9f;
         }
 
         private void ConfigureWheelsForSimplifiedGroundPhysics()

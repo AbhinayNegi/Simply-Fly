@@ -12,6 +12,8 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightPhysicsController flightPhysics;
         [SerializeField] private ApproachGuidanceController approach;
         [SerializeField] private StallController stall;
+        [SerializeField] private FlapController flaps;
+        [SerializeField] private AssistedTrimController trim;
         [SerializeField] private LandingController landing;
         [SerializeField] private UIController debugUI;
 
@@ -26,12 +28,13 @@ namespace SimplyFly.GroundOps
         [SerializeField] private TMP_Text warningLabel;
         [SerializeField] private TMP_Text landingFeedbackLabel;
         [SerializeField] private CanvasGroup landingFeedbackGroup;
+        [SerializeField] private FlightTrimHUDView trimView;
 
         [Header("Display tuning")]
         [SerializeField] private Key hudToggleKey = Key.H;
         [SerializeField] private Key debugToggleKey = Key.F10;
-        [Min(1f)] [SerializeField] private float safeApproachSpeedMin = 55f;
-        [Min(1f)] [SerializeField] private float safeApproachSpeedMax = 70f;
+        [Min(1f)] [SerializeField] private float safeApproachSpeedMin = 65f;
+        [Min(1f)] [SerializeField] private float safeApproachSpeedMax = 75f;
         [Min(0.5f)] [SerializeField] private float landingFeedbackDuration = 5f;
         [Min(0.1f)] [SerializeField] private float landingFeedbackFadeDuration = 1.25f;
 
@@ -67,6 +70,7 @@ namespace SimplyFly.GroundOps
             UpdateInstruments();
             UpdateStallWarning();
             UpdateLandingFeedback();
+            trimView?.UpdateView(trim);
         }
 
         private void ApplyHUDVisibility()
@@ -81,18 +85,23 @@ namespace SimplyFly.GroundOps
         {
             float airspeed = flightPhysics == null ? 0f : flightPhysics.AirspeedKnots;
             float stallSpeed = stall == null ? 42f : stall.EffectiveStallSpeed;
+            float flapRatio = flaps == null
+                ? 0f
+                : Mathf.Clamp01(flaps.ActualAngle / 30f);
+            float approachMin = safeApproachSpeedMin - flapRatio * 15f;
+            float approachMax = safeApproachSpeedMax - flapRatio * 15f;
             Color speedColor = stall != null && stall.StallWarning
                 ? dangerColor
                 : airspeed < stallSpeed
                     ? dangerColor
-                    : airspeed < safeApproachSpeedMin
+                    : airspeed < approachMin
                         ? cautionColor
-                        : airspeed <= safeApproachSpeedMax
+                        : airspeed <= approachMax
                             ? safeColor
                             : normalColor;
             airspeedInstrument?.SetDisplay(
                 $"{airspeed:000}",
-                $"KT\nSTALL < {stallSpeed:0}   APP {safeApproachSpeedMin:0}-{safeApproachSpeedMax:0}",
+                $"KT\nSTALL < {stallSpeed:0}   APP {approachMin:0}-{approachMax:0}",
                 speedColor);
 
             float altitude = approach != null
@@ -129,8 +138,9 @@ namespace SimplyFly.GroundOps
 
             powerInstrument?.SetDisplay(
                 $"{(throttle == null ? 0f : throttle.Throttle * 100f):000}%",
-                $"THROTTLE\nRPM {(engine == null ? 0f : engine.CurrentRPM):0000}",
-                normalColor);
+                $"THROTTLE   RPM {(engine == null ? 0f : engine.CurrentRPM):0000}" +
+                $"\nFLAPS {(flaps == null ? 0f : flaps.ActualAngle):00}°",
+                flaps != null && flaps.SpeedWarning ? cautionColor : normalColor);
 
             float pitch = flightPhysics == null ? 0f : flightPhysics.PitchAngle;
             float bank = flightPhysics == null ? 0f : flightPhysics.BankAngle;
@@ -143,15 +153,21 @@ namespace SimplyFly.GroundOps
         private void UpdateStallWarning()
         {
             if (warningLabel == null) return;
-            bool warning = stall != null && stall.StallWarning;
+            bool stallActive = stall != null && stall.StallWarning;
+            bool flapWarning = flaps != null && flaps.SpeedWarning;
+            bool warning = stallActive || flapWarning;
             warningLabel.gameObject.SetActive(warning);
             if (!warning) return;
 
-            warningLabel.text = stall.State == StallController.StallState.Stalled
-                ? "STALL"
-                : "STALL WARNING";
+            warningLabel.text = stallActive
+                ? stall.State == StallController.StallState.Stalled
+                    ? "STALL"
+                    : "STALL WARNING"
+                : "TOO FAST FOR FLAPS";
             float blink = Mathf.PingPong(Time.unscaledTime * 3f, 1f);
-            warningLabel.color = Color.Lerp(dangerColor, Color.white, blink * 0.45f);
+            Color warningColor = stallActive ? dangerColor : cautionColor;
+            warningLabel.color = Color.Lerp(
+                warningColor, Color.white, blink * 0.45f);
         }
 
         private void UpdateLandingFeedback()

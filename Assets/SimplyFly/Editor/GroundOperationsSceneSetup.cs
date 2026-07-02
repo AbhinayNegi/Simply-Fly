@@ -13,7 +13,7 @@ namespace SimplyFly.Editor
     [InitializeOnLoad]
     public static class GroundOperationsSceneSetup
     {
-        private const string SetupMarkerName = "Sprint 7 - Landing Feedback Alignment v1";
+        private const string SetupMarkerName = "Sprint 9 - Assisted Trim v1";
         private static readonly Vector3 AircraftSpawnPosition = new Vector3(-1020f, 1.73f, 0f);
         private const string EngineLoopAssetPath =
             "Assets/SimplyFly/Audio/airplane_prop_loop.ogg";
@@ -91,6 +91,8 @@ namespace SimplyFly.Editor
             DestroyComponent<AircraftResetController>(visual);
             DestroyComponent<FlightPhysicsController>(visual);
             DestroyComponent<StallController>(visual);
+            DestroyComponent<FlapController>(visual);
+            DestroyComponent<AssistedTrimController>(visual);
             DestroyComponent<WheelVisualController>(visual);
             DestroyComponent<EngineAudioController>(visual);
             DestroyComponent<PropellerController>(visual);
@@ -288,6 +290,8 @@ namespace SimplyFly.Editor
             SteeringController steering = GetOrAdd<SteeringController>(aircraft);
             GroundMovementController movement = GetOrAdd<GroundMovementController>(aircraft);
             FlightPhysicsController flightPhysics = GetOrAdd<FlightPhysicsController>(aircraft);
+            FlapController flaps = GetOrAdd<FlapController>(aircraft);
+            AssistedTrimController trim = GetOrAdd<AssistedTrimController>(aircraft);
             StallController stall = GetOrAdd<StallController>(aircraft);
             ApproachGuidanceController approach =
                 GetOrAdd<ApproachGuidanceController>(aircraft);
@@ -327,29 +331,40 @@ namespace SimplyFly.Editor
             SetArray(movement, "wheels", wheels);
             SetVector3(movement, "localForwardAxis", Vector3.forward);
             SetFloat(movement, "idleThrust", 420f);
-            SetFloat(movement, "maxGroundThrust", 4800f);
-            SetFloat(movement, "throttleResponseSpeed", 0.55f);
-            SetFloat(movement, "maximumTaxiSpeed", 21f);
-            SetFloat(movement, "rollingResistance", 75f);
-            SetFloat(movement, "idleCreepSpeed", 1.35f);
-            SetFloat(movement, "breakawayThrust", 0.28f);
-            SetFloat(movement, "staticFrictionSoftness", 1.25f);
+            SetFloat(movement, "maxGroundThrust", 3000f);
+            SetFloat(movement, "throttleResponseSpeed", 0.4f);
+            SetFloat(movement, "maximumTaxiSpeed", 34f);
+            SetCurve(movement, "speedLimitThrottleCurve",
+                new AnimationCurve(
+                    new Keyframe(0f, 0f),
+                    new Keyframe(0.25f, 0.13f),
+                    new Keyframe(0.5f, 0.38f),
+                    new Keyframe(0.75f, 0.7f),
+                    new Keyframe(1f, 1f)));
+            SetFloat(movement, "speedFadeStartRatio", 0.9f);
+            SetFloat(movement, "rollingResistance", 70f);
+            SetFloat(movement, "rollingResistanceBuildSpeed", 0.75f);
+            SetFloat(movement, "idleCreepSpeed", 1.8f);
+            SetFloat(movement, "breakawayThrust", 0.18f);
+            SetFloat(movement, "staticFrictionSoftness", 2.5f);
             SetObject(flightPhysics, "input", input);
             SetObject(flightPhysics, "engine", engine);
             SetObject(flightPhysics, "throttle", throttle);
             SetObject(flightPhysics, "groundMovement", movement);
             SetObject(flightPhysics, "stall", stall);
+            SetObject(flightPhysics, "flaps", flaps);
+            SetObject(flightPhysics, "trim", trim);
             SetArray(flightPhysics, "groundCheckPoints",
                 new Object[] { left.transform, right.transform, nose.transform });
             SetVector3(flightPhysics, "localForwardAxis", Vector3.forward);
             SetVector3(flightPhysics, "localPitchAxis", Vector3.left);
-            SetFloat(flightPhysics, "takeoffSpeed", 19.5f);
+            SetFloat(flightPhysics, "takeoffSpeed", 30f);
             SetFloat(flightPhysics, "liftMultiplier", 1.04f);
             SetFloat(flightPhysics, "maxLiftForce", 16500f);
             SetFloat(flightPhysics, "pitchLiftInfluence", 0.38f);
             SetFloat(flightPhysics, "levelLiftFactor", 0.68f);
             SetFloat(flightPhysics, "referenceAngleOfAttack", 8f);
-            SetFloat(flightPhysics, "rotationSpeed", 17.5f);
+            SetFloat(flightPhysics, "rotationSpeed", 27f);
             SetFloat(flightPhysics, "elevatorAuthority", 2.2f);
             SetFloat(flightPhysics, "pitchResponse", 2.4f);
             SetFloat(flightPhysics, "elevatorReturnSpeed", 3f);
@@ -380,7 +395,7 @@ namespace SimplyFly.Editor
             SetFloat(flightPhysics, "maxGroundNoseSettlingMoment", 1.4f);
             SetFloat(flightPhysics, "aerodynamicDrag", 2.2f);
             SetFloat(flightPhysics, "dragMultiplier", 1f);
-            SetFloat(flightPhysics, "airborneThrustMultiplier", 1f);
+            SetFloat(flightPhysics, "airborneThrustMultiplier", 1.53f);
             SetFloat(flightPhysics, "aileronAuthority", 2.2f);
             SetFloat(flightPhysics, "rollResponse", 3f);
             SetFloat(flightPhysics, "aileronReturnSpeed", 4f);
@@ -403,6 +418,7 @@ namespace SimplyFly.Editor
             SetFloat(flightPhysics, "maxLateralSlipAcceleration", 14f);
             SetObject(stall, "flightPhysics", flightPhysics);
             SetObject(stall, "input", input);
+            SetObject(stall, "flaps", flaps);
             SetVector3(stall, "localPitchAxis", Vector3.left);
             SetFloat(stall, "stallSpeed", 42f);
             SetFloat(stall, "stallAoA", 14f);
@@ -422,6 +438,36 @@ namespace SimplyFly.Editor
             SetFloat(stall, "maxStallNoseDropMoment", 1.2f);
             SetFloat(stall, "stallPitchDamping", 1.8f);
             SetFloat(stall, "buffetStrength", 0.06f);
+            SetObject(flaps, "input", input);
+            SetObject(flaps, "flightPhysics", flightPhysics);
+            SetVector3(flaps, "localPitchAxis", Vector3.left);
+            SetFloat(flaps, "flapDeploySpeed", 10f);
+            SetFloat(flaps, "flapRetractSpeed", 14f);
+            SetFloat(flaps, "flapLiftBonusPerStep", 0.08f);
+            SetFloat(flaps, "maxFlapLiftBonus", 0.24f);
+            SetFloat(flaps, "flapDragPerStep", 0.55f);
+            SetFloat(flaps, "maxFlapDrag", 1.65f);
+            SetFloat(flaps, "flapStallSpeedReduction", 7f);
+            SetFloat(flaps, "flapPitchMoment", -0.06f);
+            SetFloat(flaps, "maxFlapExtensionSpeed", 100f);
+            SetObject(trim, "input", input);
+            SetObject(trim, "flightPhysics", flightPhysics);
+            SetObject(trim, "stall", stall);
+            SetObject(trim, "flaps", flaps);
+            SetObject(trim, "throttle", throttle);
+            SetFloat(trim, "trimCaptureSpeed", 0.22f);
+            SetFloat(trim, "trimResponseSpeed", 0.16f);
+            SetFloat(trim, "maximumNoseUpTrim", 0.38f);
+            SetFloat(trim, "maximumNoseDownTrim", 0.32f);
+            SetFloat(trim, "trimRecommendationDelay", 1f);
+            SetFloat(trim, "trimDeadband", 0.12f);
+            SetFloat(trim, "trimStrength", 1f);
+            SetFloat(trim, "airspeedTrimInfluence", 0.18f);
+            SetFloat(trim, "flapTrimInfluence", 0.2f);
+            SetFloat(trim, "trimCaptureMinSpeed", 50f);
+            SetFloat(trim, "trimCaptureMaxBank", 30f);
+            SetFloat(trim, "trimCaptureMaxPitchRate", 8f);
+            SetFloat(trim, "trimCaptureMaxVerticalSpeed", 8f);
             SetObject(propellerController, "engine", engine);
             SetObject(propellerController, "propeller", propeller);
             SetFloat(propellerController, "blurStartRPM", 600f);
@@ -443,6 +489,8 @@ namespace SimplyFly.Editor
             SetObject(ui, "approachGuidance", approach);
             SetObject(ui, "landing", landing);
             SetObject(ui, "stall", stall);
+            SetObject(ui, "flaps", flaps);
+            SetObject(ui, "trim", trim);
             SetObject(ui, "resetController", resetController);
             SetObject(approach, "flightPhysics", flightPhysics);
             GameObject runwayApproachTarget =
@@ -482,6 +530,8 @@ namespace SimplyFly.Editor
             SetObject(resetController, "flightPhysics", flightPhysics);
             SetObject(resetController, "landing", landing);
             SetObject(resetController, "stall", stall);
+            SetObject(resetController, "flaps", flaps);
+            SetObject(resetController, "trim", trim);
             SetObject(resetController, "propeller", propellerController);
             SetVector3(resetController, "airborneTestPosition",
                 new Vector3(-400f, 300f, -900f));
@@ -570,12 +620,64 @@ namespace SimplyFly.Editor
                 new Vector2(340f, 110f), 24f, TextAlignmentOptions.Center);
             feedback.fontStyle = FontStyles.Bold;
 
+            GameObject trimPanel = FindOrCreateUIChild(hud.transform, "Assisted Trim");
+            RectTransform trimPanelRect = trimPanel.GetComponent<RectTransform>();
+            SetHUDRect(trimPanelRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 155f), new Vector2(390f, 140f));
+            Image trimBackground = GetOrAdd<Image>(trimPanel);
+            trimBackground.color = new Color(0.015f, 0.05f, 0.065f, 0.78f);
+            trimBackground.raycastTarget = false;
+            TextMeshProUGUI trimStatus = CreateHUDText(
+                trimPanel.transform, "Status", new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f), new Vector2(0f, -10f),
+                new Vector2(370f, 25f), 17f, TextAlignmentOptions.Center);
+            trimStatus.fontStyle = FontStyles.Bold;
+            TextMeshProUGUI trimRecommendation = CreateHUDText(
+                trimPanel.transform, "Recommendation", new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f), new Vector2(0f, -36f),
+                new Vector2(370f, 28f), 16f, TextAlignmentOptions.Center);
+            trimRecommendation.fontStyle = FontStyles.Bold;
+            GameObject trimBar = FindOrCreateUIChild(trimPanel.transform, "Trim Bar");
+            RectTransform trimBarRect = trimBar.GetComponent<RectTransform>();
+            SetHUDRect(trimBarRect, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f),
+                new Vector2(0f, -76f), new Vector2(260f, 6f));
+            Image trimBarImage = GetOrAdd<Image>(trimBar);
+            trimBarImage.color = new Color(0.35f, 0.62f, 0.68f, 0.8f);
+            trimBarImage.raycastTarget = false;
+            GameObject trimMarker = FindOrCreateUIChild(trimBar.transform, "Marker");
+            RectTransform trimMarkerRect = trimMarker.GetComponent<RectTransform>();
+            SetHUDRect(trimMarkerRect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(7f, 24f));
+            Image trimMarkerImage = GetOrAdd<Image>(trimMarker);
+            trimMarkerImage.color = new Color(0.25f, 0.95f, 1f);
+            trimMarkerImage.raycastTarget = false;
+            TextMeshProUGUI trimScale = CreateHUDText(
+                trimPanel.transform, "Scale", new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f), new Vector2(0f, -84f),
+                new Vector2(300f, 22f), 12f, TextAlignmentOptions.Center);
+            trimScale.text = "NOSE DOWN          NEUTRAL          NOSE UP";
+            trimScale.color = new Color(0.65f, 0.84f, 0.88f);
+            TextMeshProUGUI trimMessage = CreateHUDText(
+                trimPanel.transform, "Message", new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f), new Vector2(0f, 7f),
+                new Vector2(370f, 24f), 15f, TextAlignmentOptions.Center);
+            trimMessage.fontStyle = FontStyles.Bold;
+            FlightTrimHUDView trimView = GetOrAdd<FlightTrimHUDView>(trimPanel);
+            SetObject(trimView, "statusLabel", trimStatus);
+            SetObject(trimView, "recommendationLabel", trimRecommendation);
+            SetObject(trimView, "messageLabel", trimMessage);
+            SetObject(trimView, "trimMarker", trimMarkerRect);
+            SetObject(trimView, "trimMarkerImage", trimMarkerImage);
+            SetFloat(trimView, "trimBarWidth", 260f);
+
             FlightHUDController controller = GetOrAdd<FlightHUDController>(hud);
             SetObject(controller, "engine", aircraft.GetComponent<EngineController>());
             SetObject(controller, "throttle", aircraft.GetComponent<ThrottleController>());
             SetObject(controller, "flightPhysics", aircraft.GetComponent<FlightPhysicsController>());
             SetObject(controller, "approach", aircraft.GetComponent<ApproachGuidanceController>());
             SetObject(controller, "stall", aircraft.GetComponent<StallController>());
+            SetObject(controller, "flaps", aircraft.GetComponent<FlapController>());
+            SetObject(controller, "trim", aircraft.GetComponent<AssistedTrimController>());
             SetObject(controller, "landing", aircraft.GetComponent<LandingController>());
             SetObject(controller, "debugUI", aircraft.GetComponent<UIController>());
             SetObject(controller, "hudGroup", hudGroup);
@@ -588,6 +690,9 @@ namespace SimplyFly.Editor
             SetObject(controller, "warningLabel", warning);
             SetObject(controller, "landingFeedbackLabel", feedback);
             SetObject(controller, "landingFeedbackGroup", feedbackGroup);
+            SetObject(controller, "trimView", trimView);
+            SetFloat(controller, "safeApproachSpeedMin", 65f);
+            SetFloat(controller, "safeApproachSpeedMax", 75f);
         }
 
         private static FlightHUDInstrument CreateHUDInstrument(

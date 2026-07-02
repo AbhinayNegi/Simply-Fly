@@ -15,6 +15,8 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightPhysicsController flightPhysics;
         [SerializeField] private LandingController landing;
         [SerializeField] private StallController stall;
+        [SerializeField] private FlapController flaps;
+        [SerializeField] private AssistedTrimController trim;
         [SerializeField] private PropellerController propeller;
         [SerializeField] private CameraController followCamera;
 
@@ -47,6 +49,8 @@ namespace SimplyFly.GroundOps
             if (flightPhysics == null) flightPhysics = GetComponent<FlightPhysicsController>();
             if (landing == null) landing = GetComponent<LandingController>();
             if (stall == null) stall = GetComponent<StallController>();
+            if (flaps == null) flaps = GetComponent<FlapController>();
+            if (trim == null) trim = GetComponent<AssistedTrimController>();
             if (propeller == null) propeller = GetComponent<PropellerController>();
             if (followCamera == null) followCamera = FindAnyObjectByType<CameraController>();
 
@@ -117,6 +121,8 @@ namespace SimplyFly.GroundOps
             if (flightPhysics != null) flightPhysics.ResetFlight();
             if (landing != null) landing.ResetLanding();
             if (stall != null) stall.ResetStall();
+            if (flaps != null) flaps.ResetFlaps();
+            if (trim != null) trim.ResetTrim();
             if (propeller != null) propeller.ResetPropeller();
         }
 

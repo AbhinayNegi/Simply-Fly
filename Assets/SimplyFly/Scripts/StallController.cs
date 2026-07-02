@@ -16,6 +16,7 @@ namespace SimplyFly.GroundOps
         [Header("References")]
         [SerializeField] private FlightPhysicsController flightPhysics;
         [SerializeField] private AircraftInput input;
+        [SerializeField] private FlapController flaps;
         [SerializeField] private Vector3 localPitchAxis = Vector3.left;
 
         [Header("Detection")]
@@ -66,6 +67,7 @@ namespace SimplyFly.GroundOps
         public float BankRiskFactor { get; private set; } = 1f;
         public float EffectiveStallSpeed { get; private set; }
         public float EffectiveStallAoA { get; private set; }
+        public float CleanStallSpeed => stallSpeed;
 
         private Rigidbody body;
         private AudioSource warningSource;
@@ -76,6 +78,7 @@ namespace SimplyFly.GroundOps
             if (flightPhysics == null)
                 flightPhysics = GetComponent<FlightPhysicsController>();
             if (input == null) input = GetComponent<AircraftInput>();
+            if (flaps == null) flaps = GetComponent<FlapController>();
             ConfigureWarningAudio();
             EffectiveStallSpeed = stallSpeed;
             EffectiveStallAoA = stallAoA;
@@ -96,9 +99,14 @@ namespace SimplyFly.GroundOps
 
             float bankRatio = Mathf.Clamp01(Mathf.Abs(flightPhysics.BankAngle) / 70f);
             BankRiskFactor = 1f + bankRatio * bankStallRiskMultiplier;
-            EffectiveStallSpeed = stallSpeed * BankRiskFactor;
+            float flapSpeedReduction =
+                flaps == null ? 0f : flaps.StallSpeedReduction;
+            EffectiveStallSpeed =
+                Mathf.Max(1f, stallSpeed - flapSpeedReduction) * BankRiskFactor;
             EffectiveStallAoA = stallAoA / BankRiskFactor;
-            float effectiveWarningSpeed = stallWarningSpeed * BankRiskFactor;
+            float effectiveWarningSpeed =
+                Mathf.Max(1f, stallWarningSpeed - flapSpeedReduction) *
+                BankRiskFactor;
             float effectiveWarningAoA = stallWarningAoA / BankRiskFactor;
 
             float speed = flightPhysics.AirspeedKnots;
@@ -106,11 +114,14 @@ namespace SimplyFly.GroundOps
             bool warningRisk =
                 speed <= effectiveWarningSpeed &&
                 aoa >= effectiveWarningAoA;
+            warningRisk |= speed <= EffectiveStallSpeed * 0.95f;
             bool stallRisk =
                 (speed <= EffectiveStallSpeed && aoa >= effectiveWarningAoA) ||
                 (speed <= effectiveWarningSpeed && aoa >= EffectiveStallAoA);
             bool recoveryCondition =
-                speed >= stallRecoverySpeed * BankRiskFactor ||
+                speed >= Mathf.Max(
+                    1f, stallRecoverySpeed - flapSpeedReduction * 0.6f) *
+                    BankRiskFactor ||
                 aoa <= stallRecoveryAoA / BankRiskFactor;
             bool safelyClear =
                 speed >= effectiveWarningSpeed + stallExitSpeedMargin ||

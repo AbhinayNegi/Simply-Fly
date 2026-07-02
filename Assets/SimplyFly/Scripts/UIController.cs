@@ -13,6 +13,8 @@ namespace SimplyFly.GroundOps
         [SerializeField] private ApproachGuidanceController approachGuidance;
         [SerializeField] private LandingController landing;
         [SerializeField] private StallController stall;
+        [SerializeField] private FlapController flaps;
+        [SerializeField] private AssistedTrimController trim;
         [SerializeField] private AircraftResetController resetController;
         [SerializeField] private Vector2 panelPosition = new Vector2(18f, 18f);
         [SerializeField] private int fontSize = 16;
@@ -82,6 +84,8 @@ namespace SimplyFly.GroundOps
                 $"Airspeed       {(flightPhysics == null ? 0f : flightPhysics.AirspeedKnots):0.0} kt\n" +
                 $"Lift           {(flightPhysics == null ? 0f : flightPhysics.LiftForce):0} N " +
                 $"({(flightPhysics == null ? 0f : flightPhysics.LiftPercentOfWeight):0}%)\n" +
+                $"Lift Multiplier {(flightPhysics == null ? 1f : flightPhysics.CurrentLiftMultiplier):0.00}\n" +
+                $"Drag Multiplier {(flightPhysics == null ? 1f : flightPhysics.CurrentDragMultiplier):0.00}\n" +
                 $"Pitch          {(flightPhysics == null ? 0f : flightPhysics.PitchAngle):+0.0;-0.0;0.0} deg\n" +
                 $"Angle of Attack {(flightPhysics == null ? 0f : flightPhysics.AngleOfAttack):+0.0;-0.0;0.0} deg\n" +
                 $"Flight Path     {(flightPhysics == null ? 0f : flightPhysics.FlightPathAngle):+0.0;-0.0;0.0} deg\n" +
@@ -96,6 +100,12 @@ namespace SimplyFly.GroundOps
                 $"Roll Rate      {(flightPhysics == null ? 0f : flightPhysics.RollRate * Mathf.Rad2Deg):+0.0;-0.0;0.0} deg/s\n" +
                 $"Roll Moment    {(flightPhysics == null ? 0f : flightPhysics.RollMoment):+0.00;-0.00;0.00}\n" +
                 $"Yaw Assist     {(flightPhysics == null ? 0f : flightPhysics.CoordinatedYawMoment):+0.00;-0.00;0.00}\n" +
+                $"Flaps Selected {(flaps == null ? 0f : flaps.SelectedAngle):0} deg\n" +
+                $"Flaps Actual   {(flaps == null ? 0f : flaps.ActualAngle):0.0} deg\n" +
+                $"Flap Lift      {(flaps == null ? 0f : flaps.LiftBonus):0.00}\n" +
+                $"Flap Drag      {(flaps == null ? 0f : flaps.DragBonus):0.00}\n" +
+                $"Stall Reduction {(flaps == null ? 0f : flaps.StallSpeedReduction):0.0} kt\n" +
+                $"Flap Overspeed {(flaps != null && flaps.SpeedWarning ? "YES" : "No")}\n" +
                 $"Grounded       {(flightPhysics != null && flightPhysics.IsPhysicallyGrounded ? "Yes" : "No")}\n" +
                 $"Vertical Speed {(flightPhysics == null ? 0f : flightPhysics.VerticalSpeed):+0.00;-0.00;0.00} m/s\n" +
                 $"Drag           {(flightPhysics == null ? 0f : flightPhysics.DragForce):0} N\n" +
@@ -103,11 +113,13 @@ namespace SimplyFly.GroundOps
                 $"Steering       {(steering == null ? 0f : steering.SteeringAngle):+0.0;-0.0;0.0} deg\n\n" +
                 "E Start | Shift/Ctrl Throttle | A/D Steer/Roll\n" +
                 "S/Down Nose Up | W/Up Nose Down | Space Brake\n" +
+                "F Extend Flaps | V Retract Flaps\n" +
+                "T Capture Trim | Shift+T Reset Trim\n" +
                 "RMB Orbit | R Reset Camera\n" +
                 "F1 Runway | F2 Airborne | F3 Final Approach";
 
             if (showMainDebug)
-                GUI.Box(new Rect(panelPosition.x, panelTop, 410f, 685f), text, style);
+                GUI.Box(new Rect(panelPosition.x, panelTop, 410f, 825f), text, style);
 
             string airborneText =
                 "AIRBORNE ROLL / TURN DEBUG\n\n" +
@@ -221,13 +233,25 @@ namespace SimplyFly.GroundOps
                 $"Stall warning     {(stall != null && stall.StallWarning ? "YES" : "No")}\n" +
                 $"Airspeed          {(flightPhysics == null ? 0f : flightPhysics.AirspeedKnots):0.0} kt\n" +
                 $"Stall speed       {(stall == null ? 0f : stall.EffectiveStallSpeed):0.0} kt\n" +
+                $"Clean stall speed {(stall == null ? 0f : stall.CleanStallSpeed):0.0} kt\n" +
                 $"Angle of attack   {(flightPhysics == null ? 0f : flightPhysics.AngleOfAttack):+0.0;-0.0;0.0} deg\n" +
                 $"Stall AoA         {(stall == null ? 0f : stall.EffectiveStallAoA):0.0} deg\n" +
                 $"Lift multiplier   {(stall == null ? 1f : stall.LiftMultiplier):0.00}\n" +
                 $"Control authority {(stall == null ? 1f : stall.ControlAuthorityMultiplier):0.00}\n" +
                 $"Nose-drop moment  {(stall == null ? 0f : stall.NoseDropMoment):+0.00;-0.00;0.00}\n" +
                 $"Recovery progress {(stall == null ? 1f : stall.RecoveryProgress) * 100f:0}%\n" +
-                $"Bank risk factor  {(stall == null ? 1f : stall.BankRiskFactor):0.00}";
+                $"Bank risk factor  {(stall == null ? 1f : stall.BankRiskFactor):0.00}\n\n" +
+                "TRIM DEBUG\n" +
+                $"Trim active        {(trim != null && trim.TrimActive ? "Yes" : "No")}\n" +
+                $"Current offset     {(trim == null ? 0f : trim.CurrentTrimOffset):+0.000;-0.000;0.000}\n" +
+                $"Target offset      {(trim == null ? 0f : trim.TargetTrimOffset):+0.000;-0.000;0.000}\n" +
+                $"Elevator deflection {(flightPhysics == null ? 0f : flightPhysics.ElevatorDeflection):+0.00;-0.00;0.00}\n" +
+                $"Sustained pressure {(trim == null ? 0f : trim.SustainedElevatorPressure):+0.00;-0.00;0.00}\n" +
+                $"Recommendation     {(trim == null ? "--" : trim.Recommendation)}\n" +
+                $"Rejection          {(trim == null || string.IsNullOrEmpty(trim.RejectionReason) ? "--" : trim.RejectionReason)}\n" +
+                $"Captured airspeed  {(trim == null ? 0f : trim.CapturedAirspeed):0.0} kt\n" +
+                $"Captured V/S       {(trim == null ? 0f : trim.CapturedVerticalSpeed):+0.00;-0.00;0.00} m/s\n" +
+                $"Captured flaps     {(trim == null ? 0f : trim.CapturedFlapSetting):0} deg";
 
             if (showStallDebug)
             {
@@ -235,7 +259,7 @@ namespace SimplyFly.GroundOps
                     panelPosition.x,
                     Screen.width - 800f);
                 GUI.Box(
-                    new Rect(stallPanelX, panelTop, 360f, 335f),
+                    new Rect(stallPanelX, panelTop, 430f, 585f),
                     stallText,
                     style);
             }
@@ -259,7 +283,7 @@ namespace SimplyFly.GroundOps
             }
 
             if (GUI.Button(
-                    new Rect(panelPosition.x, panelTop + 695f, 200f, 42f),
+                    new Rect(panelPosition.x, panelTop + 835f, 200f, 42f),
                     "RESET AIRCRAFT (Backspace)"))
             {
                 resetController?.ResetAircraft();

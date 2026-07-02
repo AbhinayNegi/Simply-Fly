@@ -19,6 +19,8 @@ namespace SimplyFly.GroundOps
         [SerializeField] private ThrottleController throttle;
         [SerializeField] private GroundMovementController groundMovement;
         [SerializeField] private StallController stall;
+        [SerializeField] private FlapController flaps;
+        [SerializeField] private AssistedTrimController trim;
         [SerializeField] private Transform[] groundCheckPoints;
 
         [Header("Model axes")]
@@ -35,8 +37,8 @@ namespace SimplyFly.GroundOps
             new Keyframe(1f, 0.86f),
             new Keyframe(1.25f, 1.12f));
         [Min(0f)] [SerializeField] private float liftMultiplier = 1.04f;
-        [Tooltip("Metres per second. 19.5 m/s is about 38 knots.")]
-        [Min(1f)] [SerializeField] private float takeoffSpeed = 19.5f;
+        [Tooltip("Metres per second. 30 m/s is about 58 knots.")]
+        [Min(1f)] [SerializeField] private float takeoffSpeed = 30f;
         [Min(0f)] [SerializeField] private float maxLiftForce = 16500f;
         [Range(0f, 1f)] [SerializeField] private float pitchLiftInfluence = 0.38f;
         [Tooltip("Fraction of lift retained at zero angle of attack.")]
@@ -45,8 +47,8 @@ namespace SimplyFly.GroundOps
         [Range(2f, 15f)] [SerializeField] private float referenceAngleOfAttack = 8f;
 
         [Header("Rotation")]
-        [Tooltip("Metres per second. 17.5 m/s is about 34 knots.")]
-        [Min(1f)] [SerializeField] private float rotationSpeed = 17.5f;
+        [Tooltip("Metres per second. 27 m/s is about 52 knots.")]
+        [Min(1f)] [SerializeField] private float rotationSpeed = 27f;
         [Min(0f)] [SerializeField] private float elevatorAuthority = 2.2f;
         [Min(0.01f)] [SerializeField] private float pitchResponse = 2.4f;
         [Min(0.01f)] [SerializeField] private float elevatorReturnSpeed = 3f;
@@ -111,7 +113,7 @@ namespace SimplyFly.GroundOps
         [Tooltip("Quadratic drag coefficient: force = coefficient × speed².")]
         [Min(0f)] [SerializeField] private float aerodynamicDrag = 2.2f;
         [Min(0f)] [SerializeField] private float dragMultiplier = 1f;
-        [Min(0f)] [SerializeField] private float airborneThrustMultiplier = 1f;
+        [Min(0f)] [SerializeField] private float airborneThrustMultiplier = 1.53f;
 
         [Header("Airborne roll")]
         [Min(0f)] [SerializeField] private float aileronAuthority = 2.2f;
@@ -154,6 +156,7 @@ namespace SimplyFly.GroundOps
         public float ElevatorInput { get; private set; }
         public float ElevatorDeflection => smoothedElevator;
         public float PitchMoment { get; private set; }
+        public float PitchRateDegrees { get; private set; }
         public float TailForce { get; private set; }
         public float FlightPathAngle { get; private set; }
         public float DynamicNeutralAoA { get; private set; }
@@ -187,6 +190,8 @@ namespace SimplyFly.GroundOps
         public float LateralVelocity { get; private set; }
         public float ForwardVelocity { get; private set; }
         public float HorizontalGroundSpeed { get; private set; }
+        public float CurrentLiftMultiplier { get; private set; } = 1f;
+        public float CurrentDragMultiplier { get; private set; } = 1f;
 
         private Rigidbody body;
         private float smoothedElevator;
@@ -208,6 +213,8 @@ namespace SimplyFly.GroundOps
             if (throttle == null) throttle = GetComponent<ThrottleController>();
             if (groundMovement == null) groundMovement = GetComponent<GroundMovementController>();
             if (stall == null) stall = GetComponent<StallController>();
+            if (flaps == null) flaps = GetComponent<FlapController>();
+            if (trim == null) trim = GetComponent<AssistedTrimController>();
             RepairLegacyTuning();
             ApplyStateConstraints();
         }
@@ -217,6 +224,8 @@ namespace SimplyFly.GroundOps
             Vector3 velocity = body.linearVelocity;
             Vector3 forward = transform.TransformDirection(localForwardAxis.normalized);
             Vector3 pitchAxis = transform.TransformDirection(localPitchAxis.normalized);
+            PitchRateDegrees =
+                Vector3.Dot(body.angularVelocity, pitchAxis) * Mathf.Rad2Deg;
 
             Airspeed = velocity.magnitude;
             ForwardVelocity = Vector3.Dot(velocity, forward);
@@ -284,10 +293,21 @@ namespace SimplyFly.GroundOps
         private void ApplyLift(Vector3 velocity, Vector3 pitchAxis)
         {
             float normalizedSpeed = takeoffSpeed <= 0f ? 0f : Airspeed / takeoffSpeed;
+            float lowSpeedFlapBlend = 1f - Mathf.SmoothStep(
+                0f, 1f, Mathf.InverseLerp(1f, 2.2f, normalizedSpeed));
+            float flapLiftMultiplier = flaps == null
+                ? 1f
+                : 1f + flaps.LiftBonus * lowSpeedFlapBlend;
             float baseLiftRatio =
                 Mathf.Max(0f, liftCurve.Evaluate(normalizedSpeed)) *
                 liftMultiplier *
                 landingLiftMultiplier *
+                flapLiftMultiplier *
+                (stall == null ? 1f : stall.LiftMultiplier);
+            CurrentLiftMultiplier =
+                liftMultiplier *
+                landingLiftMultiplier *
+                flapLiftMultiplier *
                 (stall == null ? 1f : stall.LiftMultiplier);
             float normalizedAoA = Mathf.Clamp(
                 AngleOfAttack / referenceAngleOfAttack, -1f, 1f);
@@ -364,7 +384,13 @@ namespace SimplyFly.GroundOps
                 return;
             }
 
-            DragForce = aerodynamicDrag * dragMultiplier * Airspeed * Airspeed;
+            float dragCoefficient =
+                aerodynamicDrag * dragMultiplier +
+                (flaps == null ? 0f : flaps.DragBonus);
+            CurrentDragMultiplier = aerodynamicDrag <= 0f
+                ? 1f
+                : dragCoefficient / aerodynamicDrag;
+            DragForce = dragCoefficient * Airspeed * Airspeed;
             body.AddForce(-velocity.normalized * DragForce, ForceMode.Force);
         }
 
@@ -374,8 +400,17 @@ namespace SimplyFly.GroundOps
             float speedAuthority = Mathf.Max(0f, elevatorAuthorityCurve.Evaluate(normalizedSpeed));
             bool pitchAllowed = State != AircraftState.GroundRoll;
             float pitchRate = Vector3.Dot(body.angularVelocity, pitchAxis);
+            float playerOverride = Mathf.SmoothStep(
+                0f, 1f, Mathf.InverseLerp(0.65f, 1f, Mathf.Abs(smoothedElevator)));
+            float trimCommand = trim == null
+                ? 0f
+                : trim.PitchCommandOffset * (1f - playerOverride);
+            float effectiveElevator = Mathf.Clamp(
+                smoothedElevator + trimCommand,
+                -1f,
+                1f);
             float commandMoment = pitchAllowed
-                ? smoothedElevator *
+                ? effectiveElevator *
                   elevatorAuthority *
                   speedAuthority *
                   (stall == null ? 1f : stall.ControlAuthorityMultiplier)
@@ -721,8 +756,8 @@ namespace SimplyFly.GroundOps
 
         private void RepairLegacyTuning()
         {
-            if (takeoffSpeed <= 0f) takeoffSpeed = 19.5f;
-            if (rotationSpeed <= 0f) rotationSpeed = 17.5f;
+            if (takeoffSpeed <= 0f) takeoffSpeed = 30f;
+            if (rotationSpeed <= 0f) rotationSpeed = 27f;
             if (maxLiftForce <= 0f) maxLiftForce = 16500f;
             if (elevatorAuthority <= 0f) elevatorAuthority = 2.2f;
             if (pitchResponse <= 0f) pitchResponse = 2.4f;
@@ -759,7 +794,7 @@ namespace SimplyFly.GroundOps
             if (maxVerticalSpeedAoACorrection <= 0f)
                 maxVerticalSpeedAoACorrection = 3.5f;
             if (dragMultiplier <= 0f) dragMultiplier = 1f;
-            if (airborneThrustMultiplier <= 0f) airborneThrustMultiplier = 1f;
+            if (airborneThrustMultiplier <= 0f) airborneThrustMultiplier = 1.53f;
             if (aileronAuthority <= 0f) aileronAuthority = 2.2f;
             if (rollResponse <= 0f) rollResponse = 3f;
             if (aileronReturnSpeed <= 0f) aileronReturnSpeed = 4f;
@@ -797,11 +832,14 @@ namespace SimplyFly.GroundOps
             AngleOfAttack = 0f;
             ElevatorInput = 0f;
             PitchMoment = 0f;
+            PitchRateDegrees = 0f;
             TailForce = 0f;
             FlightPathAngle = 0f;
             DynamicNeutralAoA = neutralAoA;
             VerticalSpeed = 0f;
             DragForce = 0f;
+            CurrentLiftMultiplier = 1f;
+            CurrentDragMultiplier = 1f;
             AileronInput = 0f;
             BankAngle = 0f;
             RollRate = 0f;

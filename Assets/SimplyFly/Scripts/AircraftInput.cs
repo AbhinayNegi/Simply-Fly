@@ -9,6 +9,8 @@ namespace SimplyFly.GroundOps
         [SerializeField] private Key startEngineKey = Key.E;
         [SerializeField] private Key brakeKey = Key.Space;
         [SerializeField] private Key resetCameraKey = Key.R;
+        [SerializeField] private Key extendFlapsKey = Key.F;
+        [SerializeField] private Key retractFlapsKey = Key.V;
 
         public float ThrottleInput { get; private set; }
         public float SteeringInput { get; private set; }
@@ -16,6 +18,10 @@ namespace SimplyFly.GroundOps
         public bool BrakeHeld { get; private set; }
         public bool StartEnginePressed { get; private set; }
         public bool ResetCameraPressed { get; private set; }
+        public bool FlapsExtendPressed { get; private set; }
+        public bool FlapsRetractPressed { get; private set; }
+        public bool TrimCapturePressed { get; private set; }
+        public bool TrimResetPressed { get; private set; }
         public Vector2 CameraLookDelta { get; private set; }
 
         private void Update()
@@ -41,6 +47,13 @@ namespace SimplyFly.GroundOps
             BrakeHeld = keyboard[brakeKey].isPressed;
             StartEnginePressed = keyboard[startEngineKey].wasPressedThisFrame;
             ResetCameraPressed = keyboard[resetCameraKey].wasPressedThisFrame;
+            FlapsExtendPressed = keyboard[extendFlapsKey].wasPressedThisFrame;
+            FlapsRetractPressed = keyboard[retractFlapsKey].wasPressedThisFrame;
+            bool trimPressed = keyboard.tKey.wasPressedThisFrame;
+            bool shiftHeld =
+                keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+            TrimCapturePressed = trimPressed && !shiftHeld;
+            TrimResetPressed = trimPressed && shiftHeld;
             CameraLookDelta = mouse != null && mouse.rightButton.isPressed
                 ? mouse.delta.ReadValue()
                 : Vector2.zero;
@@ -59,6 +72,10 @@ namespace SimplyFly.GroundOps
             BrakeHeld = false;
             StartEnginePressed = false;
             ResetCameraPressed = false;
+            FlapsExtendPressed = false;
+            FlapsRetractPressed = false;
+            TrimCapturePressed = false;
+            TrimResetPressed = false;
             CameraLookDelta = Vector2.zero;
         }
     }
