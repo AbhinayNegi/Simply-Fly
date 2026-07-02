@@ -8,8 +8,8 @@ namespace SimplyFly.GroundOps
         [SerializeField] private EngineController engine;
         [SerializeField] private AudioClip engineLoop;
         [Header("Response")]
-        [SerializeField] private Vector2 pitchRange = new Vector2(0.65f, 1.45f);
-        [SerializeField] private Vector2 volumeRange = new Vector2(0.18f, 0.55f);
+        [SerializeField] private Vector2 pitchRange = new Vector2(0.75f, 1.55f);
+        [SerializeField] private Vector2 volumeRange = new Vector2(0.28f, 0.72f);
         [Min(0.01f)] [SerializeField] private float audioSmoothing = 4f;
 
         private AudioSource source;
@@ -19,8 +19,11 @@ namespace SimplyFly.GroundOps
             source = GetComponent<AudioSource>();
             source.loop = true;
             source.playOnAwake = false;
-            source.spatialBlend = 1f;
+            source.spatialBlend = 0.72f;
             source.dopplerLevel = 0.1f;
+            source.minDistance = 8f;
+            source.maxDistance = 140f;
+            source.rolloffMode = AudioRolloffMode.Logarithmic;
             source.clip = engineLoop != null ? engineLoop : CreatePlaceholderLoop();
             source.Play();
         }
@@ -45,10 +48,16 @@ namespace SimplyFly.GroundOps
             for (int i = 0; i < sampleCount; i++)
             {
                 float t = i / (float)sampleRate;
-                float pulse = Mathf.Sin(t * Mathf.PI * 2f * 38f);
-                float harmonic = Mathf.Sin(t * Mathf.PI * 2f * 76f) * 0.35f;
-                float texture = Mathf.Sin(t * Mathf.PI * 2f * 114f) * 0.12f;
-                samples[i] = (pulse + harmonic + texture) * 0.18f;
+                float pulse = Mathf.Sin(t * Mathf.PI * 2f * 47f) * 0.72f;
+                float second = Mathf.Sin(t * Mathf.PI * 2f * 94f) * 0.42f;
+                float third = Mathf.Sin(t * Mathf.PI * 2f * 141f) * 0.24f;
+                float mechanical = Mathf.Sin(t * Mathf.PI * 2f * 188f) * 0.13f;
+                float texture = Mathf.Sin(t * Mathf.PI * 2f * 282f) * 0.06f;
+                float combustionPulse =
+                    0.84f + Mathf.Sin(t * Mathf.PI * 2f * 12f) * 0.16f;
+                samples[i] =
+                    (pulse + second + third + mechanical + texture) *
+                    combustionPulse * 0.26f;
             }
 
             AudioClip clip = AudioClip.Create("Procedural Engine Placeholder", sampleCount, 1, sampleRate, false);

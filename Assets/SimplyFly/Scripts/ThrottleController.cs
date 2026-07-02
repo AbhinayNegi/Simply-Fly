@@ -27,5 +27,10 @@ namespace SimplyFly.GroundOps
         {
             Throttle = 0f;
         }
+
+        public void SetThrottleForTest(float value)
+        {
+            Throttle = Mathf.Clamp01(value);
+        }
     }
 }

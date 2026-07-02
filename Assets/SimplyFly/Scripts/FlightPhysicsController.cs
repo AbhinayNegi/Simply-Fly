@@ -18,6 +18,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private EngineController engine;
         [SerializeField] private ThrottleController throttle;
         [SerializeField] private GroundMovementController groundMovement;
+        [SerializeField] private StallController stall;
         [SerializeField] private Transform[] groundCheckPoints;
 
         [Header("Model axes")]
@@ -33,7 +34,7 @@ namespace SimplyFly.GroundOps
             new Keyframe(0.9f, 0.68f),
             new Keyframe(1f, 0.86f),
             new Keyframe(1.25f, 1.12f));
-        [Min(0f)] [SerializeField] private float liftMultiplier = 1f;
+        [Min(0f)] [SerializeField] private float liftMultiplier = 1.04f;
         [Tooltip("Metres per second. 19.5 m/s is about 38 knots.")]
         [Min(1f)] [SerializeField] private float takeoffSpeed = 19.5f;
         [Min(0f)] [SerializeField] private float maxLiftForce = 16500f;
@@ -61,6 +62,10 @@ namespace SimplyFly.GroundOps
         [FormerlySerializedAs("stableAngleOfAttack")]
         [Tooltip("Gentle equilibrium angle of attack with neutral elevator.")]
         [Range(-2f, 5f)] [SerializeField] private float neutralAoA = 0.75f;
+        [Tooltip("Neutral AoA used at ordinary cruise power.")]
+        [Range(-2f, 6f)] [SerializeField] private float cruiseNeutralAoA = 1.2f;
+        [Tooltip("Neutral AoA used near full throttle for a shallow climb.")]
+        [Range(-2f, 8f)] [SerializeField] private float climbNeutralAoA = 2f;
         [Tooltip("AoA error ignored by aerodynamic pitch stability.")]
         [Range(0f, 3f)] [SerializeField] private float aoADeadband = 0.5f;
         [Tooltip("Strength of the restoring moment toward stable angle of attack.")]
@@ -76,10 +81,16 @@ namespace SimplyFly.GroundOps
         [Min(0f)] [SerializeField] private float tailPitchRateInfluence = 0.32f;
         [Tooltip("Maximum corrective tail force.")]
         [Min(0f)] [SerializeField] private float maxTailForce = 1700f;
-        [Tooltip("Additional neutral AoA requested per degree of descending flight path.")]
-        [Range(0f, 1f)] [SerializeField] private float descentRecoveryAoAInfluence = 0.32f;
-        [Tooltip("Maximum neutral AoA used for descent recovery.")]
-        [Range(1f, 12f)] [SerializeField] private float maxDescentRecoveryAoA = 6f;
+        [Tooltip("Neutral-input vertical-speed correction, in AoA degrees per m/s of error.")]
+        [Min(0f)] [SerializeField] private float verticalSpeedStability = 0.38f;
+        [Tooltip("Desired neutral-input vertical speed near full throttle.")]
+        [Range(-2f, 4f)] [SerializeField] private float targetNeutralVerticalSpeed = 1.2f;
+        [Tooltip("Neutral-input descent target at idle throttle.")]
+        [Range(-6f, 0f)] [SerializeField] private float idleTargetVerticalSpeed = -2.5f;
+        [Tooltip("Throttle setting that targets approximately level flight.")]
+        [Range(0.2f, 0.8f)] [SerializeField] private float levelFlightThrottle = 0.52f;
+        [Tooltip("Maximum AoA adjustment made by vertical-speed stability.")]
+        [Range(0f, 8f)] [SerializeField] private float maxVerticalSpeedAoACorrection = 3.5f;
         [Tooltip("Soft restoring strength above the runway rotation limit.")]
         [Min(0f)] [SerializeField] private float runwayPitchLimitStrength = 0.65f;
         [Tooltip("Broad airborne pitch safety limit; not a target attitude.")]
@@ -89,16 +100,51 @@ namespace SimplyFly.GroundOps
         [Header("Ground transition")]
         [Min(0.02f)] [SerializeField] private float liftoffConfirmationTime = 0.22f;
         [Min(0.02f)] [SerializeField] private float groundedCheckDistance = 0.14f;
+        [Tooltip("Pitch angle below which the nose is considered settled after landing.")]
+        [Range(0.25f, 4f)] [SerializeField] private float noseSettledPitchAngle = 1.25f;
+        [Tooltip("Gentle nose-down moment after the main wheels touch at low speed.")]
+        [Min(0f)] [SerializeField] private float groundNoseSettlingStrength = 0.2f;
+        [Tooltip("Maximum low-speed nose settling acceleration.")]
+        [Min(0f)] [SerializeField] private float maxGroundNoseSettlingMoment = 1.4f;
 
         [Header("Airborne forces")]
         [Tooltip("Quadratic drag coefficient: force = coefficient × speed².")]
         [Min(0f)] [SerializeField] private float aerodynamicDrag = 2.2f;
+        [Min(0f)] [SerializeField] private float dragMultiplier = 1f;
         [Min(0f)] [SerializeField] private float airborneThrustMultiplier = 1f;
-        [Min(0f)] [SerializeField] private float rollStabilization = 0.055f;
+
+        [Header("Airborne roll")]
+        [Min(0f)] [SerializeField] private float aileronAuthority = 2.2f;
+        [Min(0.01f)] [SerializeField] private float rollResponse = 3f;
+        [Min(0.01f)] [SerializeField] private float aileronReturnSpeed = 4f;
+        [Tooltip("Aileron authority versus airspeed divided by takeoff speed.")]
+        [SerializeField] private AnimationCurve rollAuthorityCurve = new AnimationCurve(
+            new Keyframe(0f, 0.02f),
+            new Keyframe(0.6f, 0.22f),
+            new Keyframe(0.9f, 0.75f),
+            new Keyframe(1f, 1f),
+            new Keyframe(1.6f, 1.15f));
         [Min(0f)] [SerializeField] private float rollDamping = 2.4f;
-        [Min(0f)] [SerializeField] private float yawDamping = 0.8f;
+        [FormerlySerializedAs("rollStabilization")]
+        [Tooltip("Optional automatic wings-level tendency. Zero preserves the current bank.")]
+        [Min(0f)] [SerializeField] private float bankStability = 0f;
+        [Range(30f, 85f)] [SerializeField] private float maximumBankAngle = 70f;
+        [Min(0f)] [SerializeField] private float bankLimitStrength = 0.12f;
+        [Tooltip("Acceleration opposing velocity across the aircraft body.")]
+        [Min(0f)] [SerializeField] private float lateralSlipDamping = 0.7f;
+        [Tooltip("Response gain used to follow the bank-derived yaw rate.")]
+        [Min(0f)] [SerializeField] private float coordinatedTurnStrength = 3f;
+        [Tooltip("Multiplier for the natural bank-derived turn rate.")]
+        [Min(0f)] [SerializeField] private float bankTurnStrength = 1f;
+        [Tooltip("Maximum yaw rate requested by coordinated-turn assistance.")]
+        [Range(1f, 45f)] [SerializeField] private float maxAssistedYawRate = 18f;
+        [Min(0f)] [SerializeField] private float yawDamping = 0.7f;
+        [Tooltip("Safety clamp for sideways damping acceleration.")]
+        [Min(0f)] [SerializeField] private float maxLateralSlipAcceleration = 14f;
 
         public AircraftState State { get; private set; } = AircraftState.GroundRoll;
+        public string DebugFlightState =>
+            State == AircraftState.GroundRoll ? "Grounded" : State.ToString();
         public float Airspeed { get; private set; }
         public float AirspeedKnots => Airspeed * 1.943844f;
         public float LiftForce { get; private set; }
@@ -114,11 +160,44 @@ namespace SimplyFly.GroundOps
         public bool IsPhysicallyGrounded { get; private set; }
         public float VerticalSpeed { get; private set; }
         public float DragForce { get; private set; }
+        public float AileronInput { get; private set; }
+        public float AileronDeflection => smoothedAileron;
+        public float BankAngle { get; private set; }
+        public float RollRate { get; private set; }
+        public float RollMoment { get; private set; }
+        public float CoordinatedYawMoment { get; private set; }
+        public float Altitude => body == null ? transform.position.y : body.position.y;
+        public float Heading { get; private set; }
+        public float TurnRate { get; private set; }
+        public string TurnDirection =>
+            TurnRate > 0.15f ? "Right" : TurnRate < -0.15f ? "Left" : "None";
+        public float YawRate { get; private set; }
+        public float YawAssistMoment { get; private set; }
+        public float YawDampingMoment { get; private set; }
+        public float MaximumBankAngle => maximumBankAngle;
+        public float CoordinatedTurnStrength => coordinatedTurnStrength;
+        public float BankTurnStrengthSetting => bankTurnStrength;
+        public float LateralSlipDamping => lateralSlipDamping;
+        public float MaxAssistedYawRate => maxAssistedYawRate;
+        public float VerticalLiftForce { get; private set; }
+        public float VerticalLiftPercentOfWeight { get; private set; }
+        public float SideLiftForce { get; private set; }
+        public float BankTurnForcePercent { get; private set; }
+        public float LateralSlipDampingForce { get; private set; }
+        public float LateralVelocity { get; private set; }
+        public float ForwardVelocity { get; private set; }
+        public float HorizontalGroundSpeed { get; private set; }
 
         private Rigidbody body;
         private float smoothedElevator;
+        private float smoothedAileron;
         private float ungroundedTimer;
         private float groundedTimer;
+        private float previousHeading;
+        private bool headingInitialized;
+        private float landingLiftMultiplier = 1f;
+        private bool landingRollActive;
+        private bool landingTransitionActive;
 
         private void Awake()
         {
@@ -128,6 +207,7 @@ namespace SimplyFly.GroundOps
             if (engine == null) engine = GetComponent<EngineController>();
             if (throttle == null) throttle = GetComponent<ThrottleController>();
             if (groundMovement == null) groundMovement = GetComponent<GroundMovementController>();
+            if (stall == null) stall = GetComponent<StallController>();
             RepairLegacyTuning();
             ApplyStateConstraints();
         }
@@ -139,6 +219,10 @@ namespace SimplyFly.GroundOps
             Vector3 pitchAxis = transform.TransformDirection(localPitchAxis.normalized);
 
             Airspeed = velocity.magnitude;
+            ForwardVelocity = Vector3.Dot(velocity, forward);
+            LateralVelocity = Vector3.Dot(velocity, transform.right);
+            HorizontalGroundSpeed = Vector3.ProjectOnPlane(velocity, Vector3.up).magnitude;
+            UpdateHeading(forward);
             VerticalSpeed = Vector3.Dot(velocity, Vector3.up);
             FlightPathAngle = Airspeed > 0.1f
                 ? Mathf.Asin(Mathf.Clamp(
@@ -157,6 +241,16 @@ namespace SimplyFly.GroundOps
 
             UpdateState();
             ApplyStateConstraints();
+            AileronInput = State == AircraftState.Airborne && input != null
+                ? input.SteeringInput
+                : 0f;
+            float aileronSmoothing = Mathf.Abs(AileronInput) > Mathf.Abs(smoothedAileron)
+                ? rollResponse
+                : aileronReturnSpeed;
+            smoothedAileron = Mathf.MoveTowards(
+                smoothedAileron,
+                AileronInput,
+                aileronSmoothing * Time.fixedDeltaTime);
             if (groundMovement != null)
                 groundMovement.SetFlightTransition(
                     State != AircraftState.GroundRoll, IsPhysicallyGrounded);
@@ -171,18 +265,30 @@ namespace SimplyFly.GroundOps
             if (State == AircraftState.Airborne)
             {
                 ApplyVirtualTail(forward, pitchAxis);
-                ApplyAirborneStability(forward, pitchAxis);
+                ApplyAirborneRollAndYaw(forward);
             }
             else
             {
                 TailForce = 0f;
+                BankAngle = 0f;
+                RollRate = 0f;
+                RollMoment = 0f;
+                YawRate = Vector3.Dot(body.angularVelocity, Vector3.up);
+                YawAssistMoment = 0f;
+                YawDampingMoment = 0f;
+                CoordinatedYawMoment = 0f;
+                LateralSlipDampingForce = 0f;
             }
         }
 
         private void ApplyLift(Vector3 velocity, Vector3 pitchAxis)
         {
             float normalizedSpeed = takeoffSpeed <= 0f ? 0f : Airspeed / takeoffSpeed;
-            float baseLiftRatio = Mathf.Max(0f, liftCurve.Evaluate(normalizedSpeed)) * liftMultiplier;
+            float baseLiftRatio =
+                Mathf.Max(0f, liftCurve.Evaluate(normalizedSpeed)) *
+                liftMultiplier *
+                landingLiftMultiplier *
+                (stall == null ? 1f : stall.LiftMultiplier);
             float normalizedAoA = Mathf.Clamp(
                 AngleOfAttack / referenceAngleOfAttack, -1f, 1f);
             float aoaModifier = normalizedAoA >= 0f
@@ -197,7 +303,47 @@ namespace SimplyFly.GroundOps
                 : transform.up;
             if (Vector3.Dot(liftDirection, transform.up) < 0f)
                 liftDirection = -liftDirection;
-            body.AddForce(liftDirection * LiftForce, ForceMode.Force);
+            Vector3 liftVector = liftDirection * LiftForce;
+            body.AddForce(liftVector, ForceMode.Force);
+
+            VerticalLiftForce = Vector3.Dot(liftVector, Vector3.up);
+            VerticalLiftPercentOfWeight =
+                weight <= 0f ? 0f : VerticalLiftForce / weight * 100f;
+            Vector3 horizontalForward = Vector3.ProjectOnPlane(
+                transform.TransformDirection(localForwardAxis.normalized),
+                Vector3.up).normalized;
+            Vector3 horizontalRight = Vector3.Cross(Vector3.up, horizontalForward).normalized;
+            SideLiftForce = horizontalRight.sqrMagnitude > 0.001f
+                ? Vector3.Dot(liftVector, horizontalRight)
+                : 0f;
+            BankTurnForcePercent = weight <= 0f
+                ? 0f
+                : Mathf.Abs(SideLiftForce) / weight * 100f;
+        }
+
+        private void UpdateHeading(Vector3 forward)
+        {
+            Vector3 horizontalForward = Vector3.ProjectOnPlane(forward, Vector3.up);
+            if (horizontalForward.sqrMagnitude < 0.001f)
+            {
+                TurnRate = 0f;
+                return;
+            }
+
+            horizontalForward.Normalize();
+            Heading = Mathf.Repeat(
+                Mathf.Atan2(horizontalForward.x, horizontalForward.z) * Mathf.Rad2Deg,
+                360f);
+            if (!headingInitialized)
+            {
+                previousHeading = Heading;
+                headingInitialized = true;
+                TurnRate = 0f;
+                return;
+            }
+
+            TurnRate = Mathf.DeltaAngle(previousHeading, Heading) / Time.fixedDeltaTime;
+            previousHeading = Heading;
         }
 
         private float CalculateAngleOfAttack(Vector3 velocity, Vector3 forward)
@@ -218,7 +364,7 @@ namespace SimplyFly.GroundOps
                 return;
             }
 
-            DragForce = aerodynamicDrag * Airspeed * Airspeed;
+            DragForce = aerodynamicDrag * dragMultiplier * Airspeed * Airspeed;
             body.AddForce(-velocity.normalized * DragForce, ForceMode.Force);
         }
 
@@ -229,7 +375,10 @@ namespace SimplyFly.GroundOps
             bool pitchAllowed = State != AircraftState.GroundRoll;
             float pitchRate = Vector3.Dot(body.angularVelocity, pitchAxis);
             float commandMoment = pitchAllowed
-                ? smoothedElevator * elevatorAuthority * speedAuthority
+                ? smoothedElevator *
+                  elevatorAuthority *
+                  speedAuthority *
+                  (stall == null ? 1f : stall.ControlAuthorityMultiplier)
                 : 0f;
             float dampingMoment = -pitchRate * pitchDamping;
             float stabilityTargetAoA = 0f;
@@ -266,6 +415,25 @@ namespace SimplyFly.GroundOps
                 if (PitchAngle > maxRotationPitchAngle)
                     limitMoment -=
                         (PitchAngle - maxRotationPitchAngle) * runwayPitchLimitStrength;
+
+                // On landing, keep pitch free until the nose wheel can settle. GroundRoll
+                // freezes pitch, so entering it while the mains alone are supporting the
+                // aircraft would otherwise lock the nose at the touchdown attitude.
+                if (State == AircraftState.Rotating &&
+                    IsPhysicallyGrounded &&
+                    PitchAngle > noseSettledPitchAngle)
+                {
+                    float lowSpeedBlend = 1f - Mathf.SmoothStep(
+                        0f, 1f, Mathf.InverseLerp(rotationSpeed * 0.35f, rotationSpeed, Airspeed));
+                    float settlingMoment = Mathf.Clamp(
+                        -PitchAngle * groundNoseSettlingStrength,
+                        -maxGroundNoseSettlingMoment,
+                        0f);
+                    // At taxi speed there is not enough airflow for full elevator
+                    // deflection to balance the aircraft on its main wheels. Do not
+                    // let held W/S cancel the mechanical nose-settling tendency.
+                    limitMoment += settlingMoment * lowSpeedBlend;
+                }
             }
             else
             {
@@ -286,11 +454,51 @@ namespace SimplyFly.GroundOps
         {
             float pitchRateDegrees =
                 Vector3.Dot(body.angularVelocity, pitchAxis) * Mathf.Rad2Deg;
-            DynamicNeutralAoA = Mathf.Clamp(
-                neutralAoA +
-                Mathf.Max(0f, -FlightPathAngle) * descentRecoveryAoAInfluence,
-                neutralAoA,
-                maxDescentRecoveryAoA);
+
+            float power = engine != null &&
+                          engine.State == EngineController.EngineState.Running &&
+                          throttle != null
+                ? throttle.Throttle
+                : 0f;
+            float powerNeutralAoA = power < 0.45f
+                ? Mathf.Lerp(neutralAoA, cruiseNeutralAoA, power / 0.45f)
+                : Mathf.Lerp(
+                    cruiseNeutralAoA,
+                    climbNeutralAoA,
+                    Mathf.InverseLerp(0.45f, 1f, power));
+
+            float safeSpeedBlend = Mathf.SmoothStep(
+                0f,
+                1f,
+                Mathf.InverseLerp(takeoffSpeed * 0.65f, takeoffSpeed, Airspeed));
+            float desiredVerticalSpeed;
+            if (power <= levelFlightThrottle)
+            {
+                float levelProgress = levelFlightThrottle <= 0f
+                    ? 1f
+                    : Mathf.Clamp01(power / levelFlightThrottle);
+                desiredVerticalSpeed = Mathf.Lerp(
+                    idleTargetVerticalSpeed,
+                    0f,
+                    Mathf.SmoothStep(0f, 1f, levelProgress));
+            }
+            else
+            {
+                float climbProgress = Mathf.InverseLerp(
+                    levelFlightThrottle,
+                    1f,
+                    power);
+                desiredVerticalSpeed = Mathf.Lerp(
+                    0f,
+                    targetNeutralVerticalSpeed,
+                    Mathf.SmoothStep(0f, 1f, climbProgress));
+            }
+            float verticalSpeedAoACorrection = Mathf.Clamp(
+                (desiredVerticalSpeed - VerticalSpeed) * verticalSpeedStability,
+                -maxVerticalSpeedAoACorrection,
+                maxVerticalSpeedAoACorrection) * safeSpeedBlend;
+            DynamicNeutralAoA = powerNeutralAoA + verticalSpeedAoACorrection;
+
             float effectiveAoAError =
                 AngleOfAttack - DynamicNeutralAoA +
                 pitchRateDegrees * tailPitchRateInfluence;
@@ -325,21 +533,100 @@ namespace SimplyFly.GroundOps
             body.AddForce(forward * engineThrust * airborneThrustMultiplier, ForceMode.Force);
         }
 
-        private void ApplyAirborneStability(Vector3 forward, Vector3 pitchAxis)
+        private void ApplyAirborneRollAndYaw(Vector3 forward)
         {
-            float rollAngle = Vector3.SignedAngle(Vector3.up, transform.up, forward);
-            float rollRate = Vector3.Dot(body.angularVelocity, forward);
+            Vector3 levelUp = Vector3.ProjectOnPlane(Vector3.up, forward).normalized;
+            Vector3 aircraftUp = Vector3.ProjectOnPlane(transform.up, forward).normalized;
+            BankAngle = levelUp.sqrMagnitude > 0.001f && aircraftUp.sqrMagnitude > 0.001f
+                ? Vector3.SignedAngle(levelUp, aircraftUp, forward)
+                : 0f;
+            RollRate = Vector3.Dot(body.angularVelocity, forward);
+
+            float normalizedSpeed = takeoffSpeed <= 0f ? 0f : Airspeed / takeoffSpeed;
+            float speedAuthority = Mathf.Max(
+                0f, rollAuthorityCurve.Evaluate(normalizedSpeed));
+
+            // Positive steering input means right roll. With local +Z forward,
+            // right roll is negative torque around the forward axis.
+            float commandMoment =
+                -smoothedAileron *
+                aileronAuthority *
+                speedAuthority *
+                (stall == null ? 1f : stall.ControlAuthorityMultiplier);
+            float dampingMoment = -RollRate * rollDamping;
+            float levelMoment = -BankAngle * bankStability;
+            float bankLimitMoment = 0f;
+            float bankExcess = Mathf.Abs(BankAngle) - maximumBankAngle;
+            if (bankExcess > 0f)
+                bankLimitMoment =
+                    -Mathf.Sign(BankAngle) * bankExcess * bankLimitStrength;
+
+            RollMoment =
+                commandMoment + dampingMoment + levelMoment + bankLimitMoment;
+            body.AddTorque(forward * RollMoment, ForceMode.Acceleration);
+
+            float bankRadians = BankAngle * Mathf.Deg2Rad;
+            float turnSpeed = Mathf.Max(Airspeed, takeoffSpeed * 0.5f);
+            float desiredYawRate =
+                -Physics.gravity.magnitude * Mathf.Tan(bankRadians) /
+                turnSpeed * bankTurnStrength;
+            float maxYawRateRadians = maxAssistedYawRate * Mathf.Deg2Rad;
+            desiredYawRate = Mathf.Clamp(
+                desiredYawRate,
+                -maxYawRateRadians,
+                maxYawRateRadians);
+            float yawRate = Vector3.Dot(body.angularVelocity, Vector3.up);
+            YawRate = yawRate;
+            YawAssistMoment =
+                (desiredYawRate - yawRate) * coordinatedTurnStrength * speedAuthority;
+            YawDampingMoment = -yawRate * yawDamping;
+            CoordinatedYawMoment = YawAssistMoment + YawDampingMoment;
             body.AddTorque(
-                forward * (-rollAngle * rollStabilization - rollRate * rollDamping),
+                transform.up * CoordinatedYawMoment,
                 ForceMode.Acceleration);
 
-            float yawRate = Vector3.Dot(body.angularVelocity, Vector3.up);
-            body.AddTorque(Vector3.up * (-yawRate * yawDamping), ForceMode.Acceleration);
-
+            float slipSpeedBlend = Mathf.SmoothStep(
+                0f,
+                1f,
+                Mathf.InverseLerp(takeoffSpeed * 0.45f, takeoffSpeed, Airspeed));
+            float lateralAcceleration = Mathf.Clamp(
+                -LateralVelocity * lateralSlipDamping * slipSpeedBlend,
+                -maxLateralSlipAcceleration,
+                maxLateralSlipAcceleration);
+            LateralSlipDampingForce = lateralAcceleration * body.mass;
+            body.AddForce(
+                transform.right * lateralAcceleration,
+                ForceMode.Acceleration);
         }
 
         private void UpdateState()
         {
+            if (landingTransitionActive &&
+                IsPhysicallyGrounded &&
+                State == AircraftState.GroundRoll)
+            {
+                State = AircraftState.Rotating;
+            }
+
+            if (landingRollActive && IsPhysicallyGrounded)
+            {
+                if (Airspeed >= rotationSpeed * 0.9f)
+                {
+                    // Permit a touch-and-go or another takeoff after rollout.
+                    // Rotation remains pilot-controlled; this only releases the
+                    // landing-roll pitch constraint at the normal rotation speed.
+                    landingRollActive = false;
+                    State = AircraftState.Rotating;
+                }
+                else
+                {
+                    State = AircraftState.GroundRoll;
+                    groundedTimer = liftoffConfirmationTime;
+                    ungroundedTimer = 0f;
+                    return;
+                }
+            }
+
             if (IsPhysicallyGrounded)
             {
                 groundedTimer += Time.fixedDeltaTime;
@@ -354,7 +641,12 @@ namespace SimplyFly.GroundOps
             switch (State)
             {
                 case AircraftState.GroundRoll:
-                    if (Airspeed >= rotationSpeed * 0.9f)
+                    if (IsPhysicallyGrounded &&
+                        PitchAngle > noseSettledPitchAngle + 0.5f)
+                    {
+                        State = AircraftState.Rotating;
+                    }
+                    else if (Airspeed >= rotationSpeed * 0.9f)
                         State = AircraftState.Rotating;
                     break;
 
@@ -365,7 +657,10 @@ namespace SimplyFly.GroundOps
                     {
                         State = AircraftState.Airborne;
                     }
-                    else if (IsPhysicallyGrounded && Airspeed < rotationSpeed * 0.72f)
+                    else if (!landingTransitionActive &&
+                             IsPhysicallyGrounded &&
+                             Airspeed < rotationSpeed * 0.72f &&
+                             PitchAngle <= noseSettledPitchAngle)
                     {
                         State = AircraftState.GroundRoll;
                     }
@@ -373,7 +668,8 @@ namespace SimplyFly.GroundOps
 
                 case AircraftState.Airborne:
                     if (IsPhysicallyGrounded && groundedTimer >= liftoffConfirmationTime)
-                        State = Airspeed >= rotationSpeed * 0.72f
+                        State = Airspeed >= rotationSpeed * 0.72f ||
+                                PitchAngle > noseSettledPitchAngle
                             ? AircraftState.Rotating
                             : AircraftState.GroundRoll;
                     break;
@@ -437,6 +733,7 @@ namespace SimplyFly.GroundOps
             if (groundedCheckDistance <= 0f) groundedCheckDistance = 0.14f;
             if (levelLiftFactor <= 0f) levelLiftFactor = 0.68f;
             if (referenceAngleOfAttack <= 0f) referenceAngleOfAttack = 8f;
+            if (liftMultiplier <= 0f) liftMultiplier = 1.04f;
             if (elevatorAuthorityCurve == null || elevatorAuthorityCurve.length == 0)
             {
                 elevatorAuthorityCurve = new AnimationCurve(
@@ -448,16 +745,43 @@ namespace SimplyFly.GroundOps
             }
             if (aerodynamicPitchStability <= 0f) aerodynamicPitchStability = 0.085f;
             if (neutralAoA >= 2.5f) neutralAoA = 0.75f;
+            if (cruiseNeutralAoA <= 0f) cruiseNeutralAoA = 1.2f;
+            if (climbNeutralAoA <= 0f) climbNeutralAoA = 2f;
             if (aoADeadband <= 0f) aoADeadband = 0.5f;
             if (maxStabilityMoment <= 0f) maxStabilityMoment = 0.45f;
             if (virtualTailArm <= 0f) virtualTailArm = 2.7f;
             if (tailStability <= 0f) tailStability = 0.42f;
             if (tailPitchRateInfluence <= 0f) tailPitchRateInfluence = 0.32f;
             if (maxTailForce <= 0f) maxTailForce = 1700f;
-            if (descentRecoveryAoAInfluence <= 0f)
-                descentRecoveryAoAInfluence = 0.32f;
-            if (maxDescentRecoveryAoA <= neutralAoA)
-                maxDescentRecoveryAoA = 6f;
+            if (verticalSpeedStability <= 0f) verticalSpeedStability = 0.38f;
+            if (idleTargetVerticalSpeed >= 0f) idleTargetVerticalSpeed = -2.5f;
+            if (levelFlightThrottle <= 0f) levelFlightThrottle = 0.52f;
+            if (maxVerticalSpeedAoACorrection <= 0f)
+                maxVerticalSpeedAoACorrection = 3.5f;
+            if (dragMultiplier <= 0f) dragMultiplier = 1f;
+            if (airborneThrustMultiplier <= 0f) airborneThrustMultiplier = 1f;
+            if (aileronAuthority <= 0f) aileronAuthority = 2.2f;
+            if (rollResponse <= 0f) rollResponse = 3f;
+            if (aileronReturnSpeed <= 0f) aileronReturnSpeed = 4f;
+            if (rollAuthorityCurve == null || rollAuthorityCurve.length == 0)
+            {
+                rollAuthorityCurve = new AnimationCurve(
+                    new Keyframe(0f, 0.02f),
+                    new Keyframe(0.6f, 0.22f),
+                    new Keyframe(0.9f, 0.75f),
+                    new Keyframe(1f, 1f),
+                    new Keyframe(1.6f, 1.15f));
+            }
+            if (rollDamping <= 0f) rollDamping = 2.4f;
+            if (maximumBankAngle <= 0f) maximumBankAngle = 70f;
+            if (bankLimitStrength <= 0f) bankLimitStrength = 0.12f;
+            if (lateralSlipDamping <= 0f) lateralSlipDamping = 0.7f;
+            if (coordinatedTurnStrength <= 0f) coordinatedTurnStrength = 3f;
+            if (bankTurnStrength <= 0f) bankTurnStrength = 1f;
+            if (maxAssistedYawRate <= 0f) maxAssistedYawRate = 18f;
+            if (yawDamping <= 0f) yawDamping = 0.7f;
+            if (maxLateralSlipAcceleration <= 0f)
+                maxLateralSlipAcceleration = 14f;
             if (runwayPitchLimitStrength <= 0f) runwayPitchLimitStrength = 0.65f;
             if (maxAirbornePitchAngle <= 0f) maxAirbornePitchAngle = 45f;
             if (airborneSafetyStrength <= 0f) airborneSafetyStrength = 0.18f;
@@ -478,11 +802,74 @@ namespace SimplyFly.GroundOps
             DynamicNeutralAoA = neutralAoA;
             VerticalSpeed = 0f;
             DragForce = 0f;
+            AileronInput = 0f;
+            BankAngle = 0f;
+            RollRate = 0f;
+            RollMoment = 0f;
+            CoordinatedYawMoment = 0f;
+            Heading = 0f;
+            TurnRate = 0f;
+            YawRate = 0f;
+            YawAssistMoment = 0f;
+            YawDampingMoment = 0f;
+            VerticalLiftForce = 0f;
+            VerticalLiftPercentOfWeight = 0f;
+            SideLiftForce = 0f;
+            BankTurnForcePercent = 0f;
+            LateralSlipDampingForce = 0f;
+            LateralVelocity = 0f;
+            ForwardVelocity = 0f;
+            HorizontalGroundSpeed = 0f;
             smoothedElevator = 0f;
+            smoothedAileron = 0f;
             ungroundedTimer = 0f;
             groundedTimer = 0f;
             IsPhysicallyGrounded = true;
+            headingInitialized = false;
+            landingLiftMultiplier = 1f;
+            landingRollActive = false;
+            landingTransitionActive = false;
             ApplyStateConstraints();
+        }
+
+        public void SetAirborneForTest()
+        {
+            State = AircraftState.Airborne;
+            landingRollActive = false;
+            landingTransitionActive = false;
+            IsPhysicallyGrounded = false;
+            groundedTimer = 0f;
+            ungroundedTimer = liftoffConfirmationTime;
+            headingInitialized = false;
+            ApplyStateConstraints();
+        }
+
+        public void SetLandingLiftMultiplier(float multiplier)
+        {
+            landingLiftMultiplier = Mathf.Max(0f, multiplier);
+        }
+
+        public void EnterLandingRoll()
+        {
+            State = AircraftState.GroundRoll;
+            landingRollActive = true;
+            landingTransitionActive = false;
+            groundedTimer = liftoffConfirmationTime;
+            ungroundedTimer = 0f;
+            smoothedAileron = 0f;
+            ApplyStateConstraints();
+        }
+
+        public void SetLandingTransitionActive(bool active)
+        {
+            landingTransitionActive = active;
+            if (active)
+            {
+                landingRollActive = false;
+                if (State == AircraftState.GroundRoll)
+                    State = AircraftState.Rotating;
+                ApplyStateConstraints();
+            }
         }
     }
 }

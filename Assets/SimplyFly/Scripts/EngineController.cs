@@ -10,7 +10,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private ThrottleController throttle;
 
         [Header("RPM")]
-        [Min(0f)] [SerializeField] private float offRPM = 25f;
+        [Min(0f)] [SerializeField] private float offRPM = 0f;
         [Min(1f)] [SerializeField] private float idleRPM = 750f;
         [Min(1f)] [SerializeField] private float maximumRPM = 2700f;
         [Tooltip("RPM gained per second.")]
@@ -31,6 +31,7 @@ namespace SimplyFly.GroundOps
         {
             if (input == null) input = GetComponent<AircraftInput>();
             if (throttle == null) throttle = GetComponent<ThrottleController>();
+            offRPM = 0f;
             CurrentRPM = offRPM;
         }
 
@@ -66,6 +67,13 @@ namespace SimplyFly.GroundOps
             State = EngineState.Off;
             starterTimer = 0f;
             CurrentRPM = offRPM;
+        }
+
+        public void SetRunningForTest(float throttleValue)
+        {
+            State = EngineState.Running;
+            starterTimer = starterDuration;
+            CurrentRPM = Mathf.Lerp(idleRPM, maximumRPM, Mathf.Clamp01(throttleValue));
         }
     }
 }

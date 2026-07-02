@@ -1,0 +1,188 @@
+using TMPro;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace SimplyFly.GroundOps
+{
+    public sealed class FlightHUDController : MonoBehaviour
+    {
+        [Header("Flight systems")]
+        [SerializeField] private EngineController engine;
+        [SerializeField] private ThrottleController throttle;
+        [SerializeField] private FlightPhysicsController flightPhysics;
+        [SerializeField] private ApproachGuidanceController approach;
+        [SerializeField] private StallController stall;
+        [SerializeField] private LandingController landing;
+        [SerializeField] private UIController debugUI;
+
+        [Header("HUD views")]
+        [SerializeField] private CanvasGroup hudGroup;
+        [SerializeField] private FlightHUDInstrument airspeedInstrument;
+        [SerializeField] private FlightHUDInstrument altitudeInstrument;
+        [SerializeField] private FlightHUDInstrument verticalSpeedInstrument;
+        [SerializeField] private FlightHUDInstrument headingInstrument;
+        [SerializeField] private FlightHUDInstrument powerInstrument;
+        [SerializeField] private FlightHUDInstrument attitudeInstrument;
+        [SerializeField] private TMP_Text warningLabel;
+        [SerializeField] private TMP_Text landingFeedbackLabel;
+        [SerializeField] private CanvasGroup landingFeedbackGroup;
+
+        [Header("Display tuning")]
+        [SerializeField] private Key hudToggleKey = Key.H;
+        [SerializeField] private Key debugToggleKey = Key.F10;
+        [Min(1f)] [SerializeField] private float safeApproachSpeedMin = 55f;
+        [Min(1f)] [SerializeField] private float safeApproachSpeedMax = 70f;
+        [Min(0.5f)] [SerializeField] private float landingFeedbackDuration = 5f;
+        [Min(0.1f)] [SerializeField] private float landingFeedbackFadeDuration = 1.25f;
+
+        private readonly Color normalColor = new Color(0.25f, 0.95f, 1f);
+        private readonly Color safeColor = new Color(0.25f, 1f, 0.48f);
+        private readonly Color cautionColor = new Color(1f, 0.75f, 0.18f);
+        private readonly Color dangerColor = new Color(1f, 0.2f, 0.12f);
+        private bool hudVisible = true;
+        private LandingController.LandingQuality lastLandingQuality;
+        private float landingFeedbackTimer;
+
+        private void Awake()
+        {
+            if (hudGroup == null) hudGroup = GetComponent<CanvasGroup>();
+            ApplyHUDVisibility();
+            if (landingFeedbackGroup != null) landingFeedbackGroup.alpha = 0f;
+        }
+
+        private void Update()
+        {
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                if (keyboard[hudToggleKey].wasPressedThisFrame)
+                {
+                    hudVisible = !hudVisible;
+                    ApplyHUDVisibility();
+                }
+                if (keyboard[debugToggleKey].wasPressedThisFrame)
+                    debugUI?.ToggleDebugVisibility();
+            }
+
+            UpdateInstruments();
+            UpdateStallWarning();
+            UpdateLandingFeedback();
+        }
+
+        private void ApplyHUDVisibility()
+        {
+            if (hudGroup == null) return;
+            hudGroup.alpha = hudVisible ? 1f : 0f;
+            hudGroup.interactable = false;
+            hudGroup.blocksRaycasts = false;
+        }
+
+        private void UpdateInstruments()
+        {
+            float airspeed = flightPhysics == null ? 0f : flightPhysics.AirspeedKnots;
+            float stallSpeed = stall == null ? 42f : stall.EffectiveStallSpeed;
+            Color speedColor = stall != null && stall.StallWarning
+                ? dangerColor
+                : airspeed < stallSpeed
+                    ? dangerColor
+                    : airspeed < safeApproachSpeedMin
+                        ? cautionColor
+                        : airspeed <= safeApproachSpeedMax
+                            ? safeColor
+                            : normalColor;
+            airspeedInstrument?.SetDisplay(
+                $"{airspeed:000}",
+                $"KT\nSTALL < {stallSpeed:0}   APP {safeApproachSpeedMin:0}-{safeApproachSpeedMax:0}",
+                speedColor);
+
+            float altitude = approach != null
+                ? approach.AltitudeAboveRunway
+                : flightPhysics == null ? 0f : flightPhysics.Altitude;
+            altitudeInstrument?.SetDisplay(
+                $"{Mathf.Max(0f, altitude):0000}",
+                "METERS AGL\nRUNWAY RELATIVE",
+                altitude < 15f && flightPhysics != null && flightPhysics.VerticalSpeed < -1f
+                    ? cautionColor
+                    : normalColor);
+
+            float verticalSpeed =
+                flightPhysics == null ? 0f : flightPhysics.VerticalSpeed;
+            verticalSpeedInstrument?.SetDisplay(
+                $"{verticalSpeed:+0.0;-0.0;0.0}",
+                "M/S\nCLIMB +   DESCENT -",
+                verticalSpeed > 0.25f
+                    ? safeColor
+                    : verticalSpeed < -2.5f
+                        ? cautionColor
+                        : normalColor);
+
+            float heading = flightPhysics == null ? 0f : flightPhysics.Heading;
+            string headingDetail = approach != null && approach.HasRunwayTarget
+                ? $"RWY {approach.RunwayHeading:000}°   ERR {approach.AlignmentError:+0.0;-0.0;0.0}°"
+                : "MAGNETIC HEADING";
+            headingInstrument?.SetDisplay(
+                $"{heading:000}°",
+                headingDetail,
+                approach != null && Mathf.Abs(approach.AlignmentError) < 5f
+                    ? safeColor
+                    : normalColor);
+
+            powerInstrument?.SetDisplay(
+                $"{(throttle == null ? 0f : throttle.Throttle * 100f):000}%",
+                $"THROTTLE\nRPM {(engine == null ? 0f : engine.CurrentRPM):0000}",
+                normalColor);
+
+            float pitch = flightPhysics == null ? 0f : flightPhysics.PitchAngle;
+            float bank = flightPhysics == null ? 0f : flightPhysics.BankAngle;
+            attitudeInstrument?.SetDisplay(
+                $"P {pitch:+0.0;-0.0;0.0}°",
+                $"BANK {bank:+0.0;-0.0;0.0}°",
+                Mathf.Abs(bank) > 45f ? cautionColor : normalColor);
+        }
+
+        private void UpdateStallWarning()
+        {
+            if (warningLabel == null) return;
+            bool warning = stall != null && stall.StallWarning;
+            warningLabel.gameObject.SetActive(warning);
+            if (!warning) return;
+
+            warningLabel.text = stall.State == StallController.StallState.Stalled
+                ? "STALL"
+                : "STALL WARNING";
+            float blink = Mathf.PingPong(Time.unscaledTime * 3f, 1f);
+            warningLabel.color = Color.Lerp(dangerColor, Color.white, blink * 0.45f);
+        }
+
+        private void UpdateLandingFeedback()
+        {
+            if (landing == null || landingFeedbackGroup == null ||
+                landingFeedbackLabel == null)
+                return;
+
+            if (landing.Quality != LandingController.LandingQuality.None &&
+                landing.Quality != lastLandingQuality)
+            {
+                lastLandingQuality = landing.Quality;
+                landingFeedbackTimer = landingFeedbackDuration;
+                string wheelMessage = landing.NoseWheelFirstWarning
+                    ? "\nNOSE WHEEL FIRST"
+                    : "\nMAIN WHEELS FIRST";
+                landingFeedbackLabel.text =
+                    $"{landing.Quality.ToString().ToUpperInvariant()} LANDING" +
+                    $"\n{landing.TouchdownVerticalSpeed:0.00} m/s" +
+                    wheelMessage;
+            }
+            else if (landing.Quality == LandingController.LandingQuality.None)
+            {
+                lastLandingQuality = LandingController.LandingQuality.None;
+            }
+
+            landingFeedbackTimer = Mathf.Max(
+                0f, landingFeedbackTimer - Time.unscaledDeltaTime);
+            landingFeedbackGroup.alpha = landingFeedbackTimer <= 0f
+                ? 0f
+                : Mathf.Clamp01(landingFeedbackTimer / landingFeedbackFadeDuration);
+        }
+    }
+}
