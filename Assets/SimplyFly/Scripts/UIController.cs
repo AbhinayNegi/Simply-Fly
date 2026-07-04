@@ -15,6 +15,9 @@ namespace SimplyFly.GroundOps
         [SerializeField] private StallController stall;
         [SerializeField] private FlapController flaps;
         [SerializeField] private AssistedTrimController trim;
+        [SerializeField] private AircraftAudioController aircraftAudio;
+        [SerializeField] private RudderController rudder;
+        [SerializeField] private AirportLocationManager locationManager;
         [SerializeField] private AircraftResetController resetController;
         [SerializeField] private Vector2 panelPosition = new Vector2(18f, 18f);
         [SerializeField] private int fontSize = 16;
@@ -25,6 +28,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private bool showLandingDebug = true;
         [SerializeField] private bool showStallDebug;
         [SerializeField] private bool showGroundDiagnostics = true;
+        [SerializeField] private bool showAudioDebug;
         [SerializeField] private bool debugVisible;
 
         private GUIStyle style;
@@ -71,6 +75,10 @@ namespace SimplyFly.GroundOps
                     new Rect(panelPosition.x + 805f, panelPosition.y, 145f, 34f),
                     showStallDebug ? "Hide Stall" : "Show Stall"))
                 showStallDebug = !showStallDebug;
+            if (GUI.Button(
+                    new Rect(panelPosition.x + 958f, panelPosition.y, 145f, 34f),
+                    showAudioDebug ? "Hide Audio" : "Show Audio"))
+                showAudioDebug = !showAudioDebug;
 
             string text =
                 $"SIMPLY FLY - FLIGHT TEST\n" +
@@ -100,6 +108,8 @@ namespace SimplyFly.GroundOps
                 $"Roll Rate      {(flightPhysics == null ? 0f : flightPhysics.RollRate * Mathf.Rad2Deg):+0.0;-0.0;0.0} deg/s\n" +
                 $"Roll Moment    {(flightPhysics == null ? 0f : flightPhysics.RollMoment):+0.00;-0.00;0.00}\n" +
                 $"Yaw Assist     {(flightPhysics == null ? 0f : flightPhysics.CoordinatedYawMoment):+0.00;-0.00;0.00}\n" +
+                $"Rudder Input   {(rudder == null ? 0f : rudder.RudderInput):+0.00;-0.00;0.00}\n" +
+                $"Slip / Skid    {(rudder == null ? 0f : rudder.SlipAmount):+0.00;-0.00;0.00}\n" +
                 $"Flaps Selected {(flaps == null ? 0f : flaps.SelectedAngle):0} deg\n" +
                 $"Flaps Actual   {(flaps == null ? 0f : flaps.ActualAngle):0.0} deg\n" +
                 $"Flap Lift      {(flaps == null ? 0f : flaps.LiftBonus):0.00}\n" +
@@ -115,7 +125,11 @@ namespace SimplyFly.GroundOps
                 "S/Down Nose Up | W/Up Nose Down | Space Brake\n" +
                 "F Extend Flaps | V Retract Flaps\n" +
                 "T Capture Trim | Shift+T Reset Trim\n" +
-                "RMB Orbit | R Reset Camera\n" +
+                "RMB Orbit | Z/X Quick Look | C Recenter\n" +
+                "J/L Rudder | I Side View Aid | K Force Vectors\n" +
+                "B Speed Sensation HUD\n" +
+                "G Flight School | O Airport Selector\n" +
+                "F5 Test UI | F6/F7 Scenario | F8 Record | F9 Run\n" +
                 "F1 Runway | F2 Airborne | F3 Final Approach";
 
             if (showMainDebug)
@@ -131,6 +145,9 @@ namespace SimplyFly.GroundOps
                 "ATTITUDE\n" +
                 $"Pitch              {(flightPhysics == null ? 0f : flightPhysics.PitchAngle):+0.0;-0.0;0.0} deg\n" +
                 $"Bank               {(flightPhysics == null ? 0f : flightPhysics.BankAngle):+0.0;-0.0;0.0} deg\n" +
+                $"Pitch rate         {(flightPhysics == null ? 0f : flightPhysics.PitchRateDegrees):+0.0;-0.0;0.0} deg/s\n" +
+                $"Pitch moment       {(flightPhysics == null ? 0f : flightPhysics.PitchMoment):+0.00;-0.00;0.00}\n" +
+                $"Pitch stability    {(flightPhysics == null ? 0f : flightPhysics.PitchStabilityTorque):+0;-0;0} Nm\n" +
                 $"Heading            {(flightPhysics == null ? 0f : flightPhysics.Heading):000.0} deg\n" +
                 $"Turn rate          {(flightPhysics == null ? 0f : flightPhysics.TurnRate):+0.00;-0.00;0.00} deg/s\n" +
                 $"Turn direction     {(flightPhysics == null ? "None" : flightPhysics.TurnDirection)}\n\n" +
@@ -149,6 +166,27 @@ namespace SimplyFly.GroundOps
                 $"Max assisted yaw   {(flightPhysics == null ? 0f : flightPhysics.MaxAssistedYawRate):0.0} deg/s\n" +
                 $"Slip damping       {(flightPhysics == null ? 0f : flightPhysics.LateralSlipDamping):0.00}\n" +
                 $"Slip damping force {(flightPhysics == null ? 0f : flightPhysics.LateralSlipDampingForce):+0;-0;0} N\n\n" +
+                "AIRFLOW STABILITY\n" +
+                $"Raw / clamped AoA  {(flightPhysics == null ? 0f : flightPhysics.RawAngleOfAttack):+0.0;-0.0;0.0} / " +
+                $"{(flightPhysics == null ? 0f : flightPhysics.AngleOfAttack):+0.0;-0.0;0.0} deg\n" +
+                $"Airflow direction  {(flightPhysics == null ? Vector3.zero : flightPhysics.EffectiveAirflowDirection)}\n" +
+                $"Forward airflow    {(flightPhysics == null ? 0f : flightPhysics.ForwardAirflowSpeed):+0.00;-0.00;0.00} m/s\n" +
+                $"Lateral airflow    {(flightPhysics == null ? 0f : flightPhysics.LateralAirflowSpeed):+0.00;-0.00;0.00} m/s\n" +
+                $"Side-slip drag     {(flightPhysics == null ? 0f : flightPhysics.SideSlipDragForce):+0;-0;0} N\n" +
+                $"Weather-vane torque {(flightPhysics == null ? 0f : flightPhysics.WeatherVaneTorque):+0.00;-0.00;0.00}\n" +
+                $"Elevator authority {(flightPhysics == null ? 0f : flightPhysics.ElevatorAuthorityMultiplier):0.00}\n" +
+                $"Lift point         {(flightPhysics == null ? Vector3.zero : flightPhysics.LiftApplicationPoint)}\n\n" +
+                "MANUAL RUDDER\n" +
+                $"Rudder input       {(rudder == null ? 0f : rudder.RudderInput):+0.00;-0.00;0.00}\n" +
+                $"Authority multiplier {(rudder == null ? 0f : rudder.AuthorityMultiplier):0.00}\n" +
+                $"Command yaw torque {(rudder == null ? 0f : rudder.CommandYawMoment):+0.00;-0.00;0.00}\n" +
+                $"Yaw rate           {(rudder == null ? 0f : rudder.YawRateDegrees):+0.0;-0.0;0.0} deg/s\n" +
+                $"Yaw damping torque {(rudder == null ? 0f : rudder.YawDampingMoment):+0.00;-0.00;0.00}\n" +
+                $"Yaw limit torque   {(rudder == null ? 0f : rudder.YawLimitMoment):+0.00;-0.00;0.00}\n" +
+                $"Net yaw torque     {(rudder == null ? 0f : rudder.AppliedYawMoment):+0.00;-0.00;0.00}\n" +
+                $"Slip amount        {(rudder == null ? 0f : rudder.SlipAmount):+0.00;-0.00;0.00}\n" +
+                $"Slip direction     {(rudder == null ? "--" : rudder.SlipDirection)}\n" +
+                $"Slip ball          {(rudder == null ? 0f : rudder.SlipBallPosition):+0.00;-0.00;0.00}\n\n" +
                 "LIFT FORCES\n" +
                 $"Total lift         {(flightPhysics == null ? 0f : flightPhysics.LiftForce):0} N\n" +
                 $"Lift / weight      {(flightPhysics == null ? 0f : flightPhysics.LiftPercentOfWeight):0.0}%\n" +
@@ -163,12 +201,13 @@ namespace SimplyFly.GroundOps
 
             if (showAirborneDebug)
                 GUI.Box(
-                    new Rect(panelPosition.x + 425f, panelTop, 430f, 810f),
+                    new Rect(panelPosition.x + 425f, panelTop, 455f, 1010f),
                     airborneText,
                     style);
 
             string approachText =
                 "APPROACH DEBUG\n\n" +
+                $"Airport           {(locationManager?.CurrentAirport?.airportName ?? "--")}\n" +
                 $"Target available  {(approachGuidance != null && approachGuidance.HasRunwayTarget ? "Yes" : "No")}\n" +
                 $"Threshold distance {(approachGuidance == null ? 0f : approachGuidance.DistanceToThreshold):0} m\n" +
                 $"Runway altitude    {(approachGuidance == null ? 0f : approachGuidance.AltitudeAboveRunway):+0.0;-0.0;0.0} m\n" +
@@ -177,6 +216,7 @@ namespace SimplyFly.GroundOps
                 $"Ground speed       {(approachGuidance == null ? 0f : approachGuidance.GroundSpeedKnots):0.0} kt\n" +
                 $"Heading            {(approachGuidance == null ? 0f : approachGuidance.Heading):000.0} deg\n" +
                 $"Runway heading     {(approachGuidance == null ? 0f : approachGuidance.RunwayHeading):000.0} deg\n" +
+                $"Recommended speed  {(locationManager?.CurrentAirport == null ? 0f : locationManager.CurrentAirport.recommendedApproachSpeed):0.0} kt\n" +
                 $"Alignment error    {(approachGuidance == null ? 0f : approachGuidance.AlignmentError):+0.0;-0.0;0.0} deg\n" +
                 $"Lateral offset     {(approachGuidance == null ? 0f : approachGuidance.LateralOffset):+0;-0;0} m\n" +
                 $"Glide slope        {(approachGuidance == null ? 0f : approachGuidance.GlideSlopeAngle):+0.0;-0.0;0.0} deg\n\n" +
@@ -305,6 +345,24 @@ namespace SimplyFly.GroundOps
                 GUI.Box(
                     new Rect(panelPosition.x + 1285f, panelTop, 475f, 535f),
                     movement.GetDiagnostics(),
+                    diagnosticStyle);
+            }
+
+            if (aircraftAudio != null && showAudioDebug)
+            {
+                if (diagnosticStyle == null)
+                {
+                    diagnosticStyle = new GUIStyle(GUI.skin.box)
+                    {
+                        alignment = TextAnchor.UpperLeft,
+                        fontSize = 13,
+                        padding = new RectOffset(12, 12, 10, 10),
+                        normal = { textColor = new Color(0.85f, 0.95f, 1f) }
+                    };
+                }
+                GUI.Box(
+                    new Rect(panelPosition.x + 865f, panelTop, 390f, 245f),
+                    aircraftAudio.GetDiagnostics(),
                     diagnosticStyle);
             }
         }

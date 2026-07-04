@@ -1,0 +1,9 @@
+Asset name: click_001 from Kenney Interface Sounds
+Project file: ui_click.ogg
+Source URL: https://kenney.nl/assets/interface-sounds
+Author/creator: Kenney
+License type: Creative Commons CC0 1.0 / public domain dedication
+Attribution requirement: None.
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Date downloaded: 2026-07-03
+Intended use in game: Menu and UI button feedback.

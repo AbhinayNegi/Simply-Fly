@@ -14,7 +14,9 @@ namespace SimplyFly.GroundOps
         [SerializeField] private StallController stall;
         [SerializeField] private FlapController flaps;
         [SerializeField] private AssistedTrimController trim;
+        [SerializeField] private AirportLocationManager locationManager;
         [SerializeField] private LandingController landing;
+        [SerializeField] private PilotAwarenessAssist awarenessAssist;
         [SerializeField] private UIController debugUI;
 
         [Header("HUD views")]
@@ -26,9 +28,12 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightHUDInstrument powerInstrument;
         [SerializeField] private FlightHUDInstrument attitudeInstrument;
         [SerializeField] private TMP_Text warningLabel;
+        [SerializeField] private TMP_Text awarenessLabel;
         [SerializeField] private TMP_Text landingFeedbackLabel;
         [SerializeField] private CanvasGroup landingFeedbackGroup;
         [SerializeField] private FlightTrimHUDView trimView;
+        [SerializeField] private RudderController rudder;
+        [SerializeField] private SlipSkidHUDView slipSkidView;
 
         [Header("Display tuning")]
         [SerializeField] private Key hudToggleKey = Key.H;
@@ -37,6 +42,7 @@ namespace SimplyFly.GroundOps
         [Min(1f)] [SerializeField] private float safeApproachSpeedMax = 75f;
         [Min(0.5f)] [SerializeField] private float landingFeedbackDuration = 5f;
         [Min(0.1f)] [SerializeField] private float landingFeedbackFadeDuration = 1.25f;
+        [Min(0f)] [SerializeField] private float touchdownBankWarningAngle = 5f;
 
         private readonly Color normalColor = new Color(0.25f, 0.95f, 1f);
         private readonly Color safeColor = new Color(0.25f, 1f, 0.48f);
@@ -69,8 +75,10 @@ namespace SimplyFly.GroundOps
 
             UpdateInstruments();
             UpdateStallWarning();
+            UpdateAwarenessCue();
             UpdateLandingFeedback();
             trimView?.UpdateView(trim);
+            slipSkidView?.UpdateView(rudder);
         }
 
         private void ApplyHUDVisibility()
@@ -79,6 +87,12 @@ namespace SimplyFly.GroundOps
             hudGroup.alpha = hudVisible ? 1f : 0f;
             hudGroup.interactable = false;
             hudGroup.blocksRaycasts = false;
+        }
+
+        public void SetHUDVisible(bool visible)
+        {
+            hudVisible = visible;
+            ApplyHUDVisibility();
         }
 
         private void UpdateInstruments()
@@ -99,9 +113,19 @@ namespace SimplyFly.GroundOps
                         : airspeed <= approachMax
                             ? safeColor
                             : normalColor;
+            string compactEnergyCue = awarenessAssist == null
+                ? "STEADY"
+                : awarenessAssist.EnergyCue.Contains("ENERGY LOW")
+                    ? "ENERGY LOW ↓"
+                    : awarenessAssist.AirspeedTrend > 0.45f
+                        ? "ACCEL ↑"
+                        : awarenessAssist.AirspeedTrend < -0.45f
+                            ? "SLOWING ↓"
+                            : "STEADY";
             airspeedInstrument?.SetDisplay(
                 $"{airspeed:000}",
-                $"KT\nSTALL < {stallSpeed:0}   APP {approachMin:0}-{approachMax:0}",
+                $"KT  {compactEnergyCue}" +
+                $"\nSTALL < {stallSpeed:0}   APP {approachMin:0}-{approachMax:0}",
                 speedColor);
 
             float altitude = approach != null
@@ -127,7 +151,8 @@ namespace SimplyFly.GroundOps
 
             float heading = flightPhysics == null ? 0f : flightPhysics.Heading;
             string headingDetail = approach != null && approach.HasRunwayTarget
-                ? $"RWY {approach.RunwayHeading:000}°   ERR {approach.AlignmentError:+0.0;-0.0;0.0}°"
+                ? $"{(locationManager?.CurrentAirport?.airportName ?? "AIRPORT")}\n" +
+                  $"RWY {approach.RunwayHeading:000}°   ERR {approach.AlignmentError:+0.0;-0.0;0.0}°"
                 : "MAGNETIC HEADING";
             headingInstrument?.SetDisplay(
                 $"{heading:000}°",
@@ -170,6 +195,26 @@ namespace SimplyFly.GroundOps
                 warningColor, Color.white, blink * 0.45f);
         }
 
+        private void UpdateAwarenessCue()
+        {
+            if (awarenessLabel == null) return;
+            string cue = awarenessAssist != null &&
+                         awarenessAssist.HUDCuesEnabled
+                ? awarenessAssist.AwarenessCue
+                : string.Empty;
+            bool visible = !string.IsNullOrWhiteSpace(cue);
+            awarenessLabel.gameObject.SetActive(visible);
+            if (!visible) return;
+            awarenessLabel.text = cue;
+            awarenessLabel.color =
+                cue.Contains("STALL") || cue.Contains("SINK")
+                    ? dangerColor
+                    : cue.Contains("LOW SPEED") ||
+                      cue.Contains("NOT ALIGNED")
+                        ? cautionColor
+                        : normalColor;
+        }
+
         private void UpdateLandingFeedback()
         {
             if (landing == null || landingFeedbackGroup == null ||
@@ -184,10 +229,16 @@ namespace SimplyFly.GroundOps
                 string wheelMessage = landing.NoseWheelFirstWarning
                     ? "\nNOSE WHEEL FIRST"
                     : "\nMAIN WHEELS FIRST";
+                string bankMessage =
+                    Mathf.Abs(landing.TouchdownBank) >
+                    Mathf.Max(0.1f, touchdownBankWarningAngle)
+                        ? $"\nBANK HIGH  {Mathf.Abs(landing.TouchdownBank):0.0}°"
+                        : string.Empty;
                 landingFeedbackLabel.text =
                     $"{landing.Quality.ToString().ToUpperInvariant()} LANDING" +
                     $"\n{landing.TouchdownVerticalSpeed:0.00} m/s" +
-                    wheelMessage;
+                    wheelMessage +
+                    bankMessage;
             }
             else if (landing.Quality == LandingController.LandingQuality.None)
             {

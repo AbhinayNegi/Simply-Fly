@@ -1,0 +1,24 @@
+REAL AUDIO STILL NEEDED
+
+The following generated fallbacks remain because no source was both suitable
+and legally/downloadably verified during this import pass:
+
+1. Small single-engine piston aircraft start/crank.
+   Search: "single engine propeller aircraft start CC0"
+   Search: "Cessna engine crank Creative Commons game"
+
+2. Small single-engine piston aircraft shutdown.
+   Search: "propeller aircraft engine shutdown CC0"
+
+3. Tire chirp/skid on a runway.
+   Search: "aircraft tire chirp runway CC0"
+   Search: "tire skid asphalt sound CC0"
+
+4. Continuous brake/tire friction loop.
+   Search: "tire friction asphalt loop CC0"
+
+5. A distinct heavy landing-gear impact.
+   Search: "landing gear touchdown thump CC0"
+
+Do not import a candidate unless its source page and license can both be
+recorded in a sidecar LICENSE file.

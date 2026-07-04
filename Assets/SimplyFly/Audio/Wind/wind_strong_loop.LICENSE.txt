@@ -1,0 +1,9 @@
+Asset name: Wind (second variation)
+Project file: wind_strong_loop.ogg
+Source URL: https://opengameart.org/content/wind
+Author/creator: IgnasD
+License type: Creative Commons CC0 1.0 / public domain dedication
+Attribution requirement: None.
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Date downloaded: 2026-07-03
+Intended use in game: Strong high-airspeed wind layer.

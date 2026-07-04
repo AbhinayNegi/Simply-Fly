@@ -1,0 +1,9 @@
+Asset name: Airplane Prop Loop
+Project file: single_prop_engine_loop.ogg
+Source URL: https://opengameart.org/content/airplane-prop-loop
+Author/creator: Original recording by jakobthiesen; seamless loop edit by AntumDeluge
+License type: Creative Commons Attribution 3.0
+Attribution requirement: Required. Credit jakobthiesen and AntumDeluge and include the source/license links.
+License URL: https://creativecommons.org/licenses/by/3.0/
+Date downloaded: 2026-07-01
+Intended use in game: Engine idle, engine power, and propeller loop layers.

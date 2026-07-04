@@ -1,0 +1,9 @@
+Asset name: wind whoosh loop
+Project file: wind_rush_loop.ogg
+Source URL: https://opengameart.org/content/wind-whoosh-loop
+Author/creator: SketchMan3
+License type: Creative Commons CC0 1.0 / public domain dedication
+Attribution requirement: None.
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Date downloaded: 2026-07-03
+Intended use in game: High-speed descent wind/whoosh layer.

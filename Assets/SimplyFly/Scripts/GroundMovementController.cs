@@ -14,7 +14,7 @@ namespace SimplyFly.GroundOps
         [Header("Ground movement")]
         [SerializeField] private Vector3 localForwardAxis = Vector3.forward;
         [Tooltip("Propeller thrust available at engine idle.")]
-        [Min(0f)] [SerializeField] private float idleThrust = 420f;
+        [Min(0f)] [SerializeField] private float idleThrust = 650f;
         [FormerlySerializedAs("maximumDriveForce")]
         [Tooltip("Additional propeller thrust available at full throttle.")]
         [Min(0f)] [SerializeField] private float maxGroundThrust = 3000f;
@@ -36,7 +36,7 @@ namespace SimplyFly.GroundOps
         [Tooltip("Speed over which normal rolling resistance builds to full strength.")]
         [Min(0.05f)] [SerializeField] private float rollingResistanceBuildSpeed = 0.75f;
         [Tooltip("Stable idle creep speed in metres per second.")]
-        [Min(0.1f)] [SerializeField] private float idleCreepSpeed = 1.8f;
+        [Min(0.1f)] [SerializeField] private float idleCreepSpeed = 2f;
         [Tooltip("Fraction of thrust retained at a standstill for soft breakaway.")]
         [Range(0.05f, 1f)] [SerializeField] private float breakawayThrust = 0.18f;
         [Tooltip("Speed range over which static friction fades away.")]
@@ -54,6 +54,7 @@ namespace SimplyFly.GroundOps
         public float SmoothedThrottle => smoothedThrottle;
         public float AppliedThrust { get; private set; }
         public float CurrentEngineThrust => engineThrustDiagnostic;
+        public float RollingResistanceForce => resistanceForceDiagnostic;
         public float GroundAcceleration { get; private set; }
         public bool FlightTransitionActive { get; private set; }
         public bool FlightWheelsGrounded { get; private set; } = true;
@@ -246,13 +247,13 @@ namespace SimplyFly.GroundOps
         {
             // Components created before v4 do not contain these serialized fields.
             // Unity deserializes missing fields as zero rather than using field initializers.
-            if (idleThrust <= 0f) idleThrust = 420f;
+            if (idleThrust <= 0f) idleThrust = 650f;
             if (maxGroundThrust <= 0f) maxGroundThrust = 3000f;
             if (throttleResponseSpeed <= 0f) throttleResponseSpeed = 0.4f;
             if (rollingResistance <= 0f) rollingResistance = 70f;
             if (rollingResistanceBuildSpeed <= 0f)
                 rollingResistanceBuildSpeed = 0.75f;
-            if (idleCreepSpeed <= 0f) idleCreepSpeed = 1.8f;
+            if (idleCreepSpeed <= 0f) idleCreepSpeed = 2f;
             if (breakawayThrust <= 0f) breakawayThrust = 0.18f;
             if (staticFrictionSoftness <= 0f) staticFrictionSoftness = 2.5f;
             if (maximumTaxiSpeed < 25f) maximumTaxiSpeed = 34f;

@@ -17,8 +17,10 @@ namespace SimplyFly.GroundOps
         [SerializeField] private StallController stall;
         [SerializeField] private FlapController flaps;
         [SerializeField] private AssistedTrimController trim;
+        [SerializeField] private RudderController rudder;
         [SerializeField] private PropellerController propeller;
         [SerializeField] private CameraController followCamera;
+        [SerializeField] private AirportLocationManager locationManager;
 
         [Header("Reset")]
         [SerializeField] private Key resetKey = Key.Backspace;
@@ -51,8 +53,11 @@ namespace SimplyFly.GroundOps
             if (stall == null) stall = GetComponent<StallController>();
             if (flaps == null) flaps = GetComponent<FlapController>();
             if (trim == null) trim = GetComponent<AssistedTrimController>();
+            if (rudder == null) rudder = GetComponent<RudderController>();
             if (propeller == null) propeller = GetComponent<PropellerController>();
             if (followCamera == null) followCamera = FindAnyObjectByType<CameraController>();
+            if (locationManager == null)
+                locationManager = FindAnyObjectByType<AirportLocationManager>();
 
             spawnPosition = body.position;
             spawnRotation = body.rotation;
@@ -63,13 +68,22 @@ namespace SimplyFly.GroundOps
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null) return;
 
-            if (keyboard.f1Key.wasPressedThisFrame ||
-                keyboard[resetKey].wasPressedThisFrame)
+            if (keyboard[resetKey].wasPressedThisFrame)
                 ResetAircraft();
+            else if (keyboard.f1Key.wasPressedThisFrame)
+            {
+                if (locationManager != null) locationManager.SpawnAtRunway();
+                else ResetAircraft();
+            }
             else if (keyboard.f2Key.wasPressedThisFrame)
                 SpawnAirborneTest();
             else if (keyboard.f3Key.wasPressedThisFrame)
-                SpawnFinalApproach();
+            {
+                if (locationManager != null)
+                    locationManager.SpawnOnFinalApproach();
+                else
+                    SpawnFinalApproach();
+            }
         }
 
         public void ResetAircraft()
@@ -111,6 +125,29 @@ namespace SimplyFly.GroundOps
                 finalApproachThrottle);
         }
 
+        public void SpawnAtRunway(Vector3 position, Quaternion rotation)
+        {
+            spawnPosition = position;
+            spawnRotation = rotation;
+            ResetSystems(stopEngineOnReset);
+            PlaceAircraft(position, rotation, Vector3.zero, false, 0f);
+        }
+
+        public void SpawnAirborneAt(
+            Vector3 position,
+            Quaternion rotation,
+            Vector3 velocity,
+            float throttleValue)
+        {
+            ResetSystems(true);
+            PlaceAircraft(
+                position,
+                rotation,
+                velocity,
+                true,
+                throttleValue);
+        }
+
         private void ResetSystems(bool resetEngine)
         {
             if (resetEngine && engine != null) engine.ResetEngine();
@@ -123,6 +160,7 @@ namespace SimplyFly.GroundOps
             if (stall != null) stall.ResetStall();
             if (flaps != null) flaps.ResetFlaps();
             if (trim != null) trim.ResetTrim();
+            if (rudder != null) rudder.ResetRudder();
             if (propeller != null) propeller.ResetPropeller();
         }
 

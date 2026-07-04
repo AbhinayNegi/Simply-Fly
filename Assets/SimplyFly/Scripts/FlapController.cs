@@ -16,9 +16,15 @@ namespace SimplyFly.GroundOps
         [Min(0.1f)] [SerializeField] private float flapRetractSpeed = 14f;
 
         [Header("Aerodynamic effects")]
-        [Min(0f)] [SerializeField] private float flapLiftBonusPerStep = 0.08f;
+        [Tooltip("Lift added by the first 10-degree takeoff flap step.")]
+        [Min(0f)] [SerializeField] private float firstFlapStepLiftBonus = 0.10f;
+        [Tooltip("Additional lift added by each step after 10 degrees.")]
+        [Min(0f)] [SerializeField] private float flapLiftBonusPerStep = 0.07f;
         [Min(0f)] [SerializeField] private float maxFlapLiftBonus = 0.24f;
-        [Min(0f)] [SerializeField] private float flapDragPerStep = 0.55f;
+        [Tooltip("Drag added by the first 10-degree takeoff flap step.")]
+        [Min(0f)] [SerializeField] private float firstFlapStepDrag = 0.25f;
+        [Tooltip("Additional drag added by each step after 10 degrees.")]
+        [Min(0f)] [SerializeField] private float flapDragPerStep = 0.70f;
         [Min(0f)] [SerializeField] private float maxFlapDrag = 1.65f;
         [Tooltip("Maximum stall-speed reduction at full flap, in knots.")]
         [Min(0f)] [SerializeField] private float flapStallSpeedReduction = 7f;
@@ -82,12 +88,16 @@ namespace SimplyFly.GroundOps
                 ? Mathf.Max(0.1f, flapPositions[1] - flapPositions[0])
                 : 10f;
             float deployedSteps = ActualAngle / stepAngle;
+            float firstStepBlend = Mathf.Clamp01(deployedSteps);
+            float additionalSteps = Mathf.Max(0f, deployedSteps - 1f);
             LiftBonus = Mathf.Min(
                 maxFlapLiftBonus,
-                deployedSteps * flapLiftBonusPerStep);
+                firstStepBlend * firstFlapStepLiftBonus +
+                additionalSteps * flapLiftBonusPerStep);
             DragBonus = Mathf.Min(
                 maxFlapDrag,
-                deployedSteps * flapDragPerStep);
+                firstStepBlend * firstFlapStepDrag +
+                additionalSteps * flapDragPerStep);
             float maximumAngle = flapPositions.Length == 0
                 ? 30f
                 : Mathf.Max(0.1f, flapPositions[flapPositions.Length - 1]);
@@ -131,6 +141,25 @@ namespace SimplyFly.GroundOps
             StallSpeedReduction = 0f;
             SpeedWarning = false;
             transientPitchInput = 0f;
+        }
+
+        public void SetFlapsForTest(float angle)
+        {
+            if (flapPositions == null || flapPositions.Length == 0) return;
+            int nearest = 0;
+            float nearestDistance = Mathf.Abs(flapPositions[0] - angle);
+            for (int i = 1; i < flapPositions.Length; i++)
+            {
+                float distance = Mathf.Abs(flapPositions[i] - angle);
+                if (distance >= nearestDistance) continue;
+                nearest = i;
+                nearestDistance = distance;
+            }
+            SelectedIndex = nearest;
+            ActualAngle = flapPositions[nearest];
+            previousAngle = ActualAngle;
+            transientPitchInput = 0f;
+            UpdateEffects();
         }
     }
 }

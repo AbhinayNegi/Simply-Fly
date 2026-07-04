@@ -1,0 +1,9 @@
+Asset name: thud2 from Metal Impact Sounds
+Project file: touchdown_soft.wav
+Source URL: https://opengameart.org/content/metal-impact-sounds
+Author/creator: BMacZero / Brian MacIntosh
+License type: Creative Commons CC0 1.0 / public domain dedication
+Attribution requirement: None; optional credit to Brian MacIntosh.
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Date downloaded: 2026-07-03
+Intended use in game: Soft main-wheel touchdown thump.

@@ -8,10 +8,10 @@ namespace SimplyFly.GroundOps
         [SerializeField] private AircraftInput input;
         [FormerlySerializedAs("brakingEffectiveness")]
         [Tooltip("Maximum braking force in Newtons.")]
-        [Min(0f)] [SerializeField] private float brakeStrength = 8500f;
+        [Min(0f)] [SerializeField] private float brakeStrength = 2800f;
         [FormerlySerializedAs("brakeBuildSpeed")]
         [Tooltip("How quickly brake pressure builds and releases.")]
-        [Min(0.01f)] [SerializeField] private float brakeResponseSpeed = 3.5f;
+        [Min(0.01f)] [SerializeField] private float brakeResponseSpeed = 1.5f;
 
         public float BrakeAmount { get; private set; }
         public bool IsBraking => BrakeAmount > 0.05f;
@@ -20,8 +20,8 @@ namespace SimplyFly.GroundOps
         private void Awake()
         {
             if (input == null) input = GetComponent<AircraftInput>();
-            if (brakeStrength <= 0f) brakeStrength = 8500f;
-            if (brakeResponseSpeed <= 0f) brakeResponseSpeed = 3.5f;
+            if (brakeStrength <= 0f) brakeStrength = 2800f;
+            if (brakeResponseSpeed <= 0f) brakeResponseSpeed = 1.5f;
         }
 
         private void Update()

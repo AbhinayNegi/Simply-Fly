@@ -1,0 +1,9 @@
+Asset name: Beep Sound
+Project file: stall_warning_beep.ogg
+Source URL: https://opengameart.org/content/beep-sound
+Author/creator: Test User
+License type: Creative Commons CC0 1.0 / public domain dedication
+Attribution requirement: None.
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Date downloaded: 2026-07-03
+Intended use in game: Repeating pre-stall warning tone.

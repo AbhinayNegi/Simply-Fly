@@ -18,6 +18,8 @@ namespace SimplyFly.GroundOps
             new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(0.45f, 0.62f), new Keyframe(1f, 0.18f));
         [Min(1f)] [SerializeField] private float speedForMinimumSensitivity = 18f;
         [Range(0.02f, 1f)] [SerializeField] private float highSpeedSteeringMultiplier = 0.18f;
+        [Tooltip("Fraction of J/L rudder input mechanically linked to nosewheel steering.")]
+        [Range(0f, 1f)] [SerializeField] private float rudderNosewheelInfluence = 0.18f;
         [Tooltip("Distance between the main gear and nose wheel.")]
         [Min(0.5f)] [SerializeField] private float wheelbase = 2.8f;
         [Tooltip("How quickly yaw rate follows the bicycle-model target.")]
@@ -48,7 +50,15 @@ namespace SimplyFly.GroundOps
             float sensitivity = steeringSensitivityCurve.Evaluate(normalizedSpeed);
             float highSpeedFade = Mathf.SmoothStep(0f, 1f, normalizedSpeed);
             sensitivity *= Mathf.Lerp(1f, highSpeedSteeringMultiplier, highSpeedFade);
-            float target = (input == null ? 0f : input.SteeringInput) * maximumSteeringAngle * sensitivity;
+            float groundSteeringCommand = input == null
+                ? 0f
+                : Mathf.Clamp(
+                    input.SteeringInput +
+                    input.RudderInput * rudderNosewheelInfluence,
+                    -1f,
+                    1f);
+            float target =
+                groundSteeringCommand * maximumSteeringAngle * sensitivity;
             SteeringAngle = Mathf.MoveTowards(SteeringAngle, target, steeringSpeed * Time.fixedDeltaTime);
             if (noseWheel != null) noseWheel.steerAngle = SteeringAngle;
 

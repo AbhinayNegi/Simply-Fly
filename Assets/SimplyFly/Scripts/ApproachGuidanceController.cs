@@ -70,5 +70,10 @@ namespace SimplyFly.GroundOps
                 AltitudeAboveRunway,
                 Mathf.Max(1f, DistanceToThreshold)) * Mathf.Rad2Deg;
         }
+
+        public void SetRunwayThreshold(Transform threshold)
+        {
+            runwayThreshold = threshold;
+        }
     }
 }

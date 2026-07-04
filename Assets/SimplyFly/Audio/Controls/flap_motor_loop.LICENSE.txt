@@ -1,0 +1,9 @@
+Asset name: (defect) motor loop
+Project file: flap_motor_loop.wav
+Source URL: https://opengameart.org/content/defect-motor-loop
+Author/creator: qubodup
+License type: Creative Commons CC0 1.0 / public domain dedication
+Attribution requirement: None.
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Date downloaded: 2026-07-03
+Intended use in game: Electric flap motor while the flaps are moving.

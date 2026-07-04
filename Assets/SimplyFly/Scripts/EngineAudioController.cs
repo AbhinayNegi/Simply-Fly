@@ -11,6 +11,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private Vector2 pitchRange = new Vector2(0.75f, 1.55f);
         [SerializeField] private Vector2 volumeRange = new Vector2(0.28f, 0.72f);
         [Min(0.01f)] [SerializeField] private float audioSmoothing = 4f;
+        [Range(0f, 1f)] [SerializeField] private float volumeMultiplier = 1f;
 
         private AudioSource source;
 
@@ -34,10 +35,16 @@ namespace SimplyFly.GroundOps
             float rpm = engine.NormalizedRPM;
             float targetPitch = Mathf.Lerp(pitchRange.x, pitchRange.y, rpm);
             float targetVolume = Mathf.Lerp(0f, Mathf.Lerp(volumeRange.x, volumeRange.y, rpm),
-                Mathf.InverseLerp(10f, 250f, engine.CurrentRPM));
+                Mathf.InverseLerp(10f, 250f, engine.CurrentRPM)) *
+                volumeMultiplier;
             float blend = 1f - Mathf.Exp(-audioSmoothing * Time.deltaTime);
             source.pitch = Mathf.Lerp(source.pitch, targetPitch, blend);
             source.volume = Mathf.Lerp(source.volume, targetVolume, blend);
+        }
+
+        public void SetVolumeMultiplier(float value)
+        {
+            volumeMultiplier = Mathf.Clamp01(value);
         }
 
         private static AudioClip CreatePlaceholderLoop()
