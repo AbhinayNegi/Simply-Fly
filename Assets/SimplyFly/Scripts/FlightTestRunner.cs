@@ -24,7 +24,8 @@ namespace SimplyFly.GroundOps
         [Header("Controls")]
         [SerializeField] private Key previousScenarioKey = Key.F6;
         [SerializeField] private Key nextScenarioKey = Key.F7;
-        [SerializeField] private Key runScenarioKey = Key.F9;
+        [Tooltip("F9 is reserved for Wind Control.")]
+        [SerializeField] private Key runScenarioKey = Key.F12;
 
         [Header("Pass thresholds")]
         [SerializeField] private Vector2 idleCreepRange = new Vector2(2f, 5f);
@@ -77,6 +78,9 @@ namespace SimplyFly.GroundOps
 
         private void Awake()
         {
+            // Existing scenes serialized the old F9 value. Migrate it at runtime
+            // so opening Wind Control can never start/reset an automated test.
+            if (runScenarioKey == Key.F9) runScenarioKey = Key.F12;
             body = GetComponent<Rigidbody>();
             ResolveReferences();
             Scenarios = BuildScenarios();
@@ -151,7 +155,7 @@ namespace SimplyFly.GroundOps
             recorder?.StopRecording(
                 "WARNING",
                 BuildMetrics(SelectedScenario.type),
-                new[] { "Scenario stopped early with F9." });
+                new[] { "Scenario stopped early with F12." });
             ScenarioFinished?.Invoke();
         }
 

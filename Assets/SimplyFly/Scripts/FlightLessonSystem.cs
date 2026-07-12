@@ -36,12 +36,19 @@ namespace SimplyFly.GroundOps
         TrimActive,
         PitchInputReleased,
         TrimNeutral,
+        PitchHoldActive,
+        VerticalSpeedHoldActive,
+        HoldAssistInactive,
         ApproachSpeed,
         ApproachAligned,
         DescentControlled,
         Flare,
         MainWheelsFirst,
-        BrakeToStop
+        BrakeToStop,
+        NavigationLateralAligned,
+        NavigationGlideAligned,
+        NavigationApproachStable,
+        DistanceToTouchdownBelow
     }
 
     [Serializable]
@@ -78,8 +85,10 @@ namespace SimplyFly.GroundOps
         [SerializeField] private StallController stall;
         [SerializeField] private FlapController flaps;
         [SerializeField] private AssistedTrimController trim;
+        [SerializeField] private FlightHoldAssistController holdAssist;
         [SerializeField] private AircraftResetController resetController;
         [SerializeField] private AirportLocationManager locationManager;
+        [SerializeField] private NavigationManager navigation;
 
         [Header("Lessons")]
         [SerializeField] private FlightLessonDefinition[] lessons;
@@ -109,8 +118,11 @@ namespace SimplyFly.GroundOps
             CurrentLessonIndex == 1 ||
             CurrentLessonIndex == 3 ||
             CurrentLessonIndex == 4 ||
-            CurrentLessonIndex == 6;
-        public bool ApproachCuesRequested => CurrentLessonIndex == 4;
+            CurrentLessonIndex == 6 ||
+            CurrentLessonIndex == 7;
+        public bool ApproachCuesRequested =>
+            CurrentLessonIndex == 4 || CurrentLessonIndex == 7;
+        public bool ApproachAidLessonRequested => CurrentLessonIndex == 7;
         public bool StallCoachRequested => CurrentLessonIndex == 3;
 
         private float conditionTimer;
@@ -121,7 +133,7 @@ namespace SimplyFly.GroundOps
         private void Awake()
         {
             ResolveReferences();
-            if (lessons == null || lessons.Length == 0)
+            if (lessons == null || lessons.Length < 8)
                 lessons = BuildDefaultLessons();
             CurrentLessonIndex = Mathf.Clamp(
                 startingLesson, 0, lessons.Length - 1);
@@ -208,6 +220,9 @@ namespace SimplyFly.GroundOps
                     else
                         resetController?.SpawnFinalApproach();
                     break;
+                case 7:
+                    navigation?.StartApproachPractice();
+                    break;
             }
         }
 
@@ -283,13 +298,13 @@ namespace SimplyFly.GroundOps
                           flightPhysics.Altitude >= objective.value;
                 case LessonObjectiveCondition.BankLeft:
                     return input != null && flightPhysics != null &&
-                           input.SteeringInput < -0.1f &&
+                           input.AileronInput < -0.1f &&
                            Mathf.Abs(flightPhysics.BankAngle) >= objective.value &&
                            Mathf.Abs(flightPhysics.BankAngle) <=
                            objective.secondaryValue;
                 case LessonObjectiveCondition.BankRight:
                     return input != null && flightPhysics != null &&
-                           input.SteeringInput > 0.1f &&
+                           input.AileronInput > 0.1f &&
                            Mathf.Abs(flightPhysics.BankAngle) >= objective.value &&
                            Mathf.Abs(flightPhysics.BankAngle) <=
                            objective.secondaryValue;
@@ -348,6 +363,15 @@ namespace SimplyFly.GroundOps
                     return trim != null &&
                            Mathf.Abs(trim.CurrentTrimOffset) <= objective.value &&
                            Mathf.Abs(trim.TargetTrimOffset) <= objective.value;
+                case LessonObjectiveCondition.PitchHoldActive:
+                    return holdAssist != null && holdAssist.PitchHoldActive;
+                case LessonObjectiveCondition.VerticalSpeedHoldActive:
+                    return holdAssist != null &&
+                           holdAssist.VerticalSpeedHoldActive;
+                case LessonObjectiveCondition.HoldAssistInactive:
+                    return holdAssist != null &&
+                           holdAssist.ActiveMode ==
+                           FlightHoldAssistController.AssistMode.None;
                 case LessonObjectiveCondition.ApproachSpeed:
                     return airspeed >= objective.value &&
                            airspeed <= objective.secondaryValue;
@@ -376,6 +400,26 @@ namespace SimplyFly.GroundOps
                 case LessonObjectiveCondition.BrakeToStop:
                     return groundSpeed <= objective.value &&
                            input != null && input.BrakeHeld;
+                case LessonObjectiveCondition.NavigationLateralAligned:
+                    return navigation != null &&
+                           Mathf.Abs(navigation.LateralOffset) <=
+                           objective.value &&
+                           Mathf.Abs(navigation.AlignmentError) <=
+                           objective.secondaryValue;
+                case LessonObjectiveCondition.NavigationGlideAligned:
+                    return navigation != null &&
+                           Mathf.Abs(navigation.GlideSlopeAltitudeError) <=
+                           objective.value;
+                case LessonObjectiveCondition.NavigationApproachStable:
+                    return navigation != null &&
+                           Mathf.Abs(navigation.LateralOffset) <=
+                           objective.value &&
+                           Mathf.Abs(navigation.GlideSlopeAltitudeError) <=
+                           objective.secondaryValue;
+                case LessonObjectiveCondition.DistanceToTouchdownBelow:
+                    return navigation != null &&
+                           navigation.DistanceToTouchdownTarget <=
+                           objective.value;
                 default:
                     return false;
             }
@@ -465,10 +509,14 @@ namespace SimplyFly.GroundOps
             if (stall == null) stall = GetComponent<StallController>();
             if (flaps == null) flaps = GetComponent<FlapController>();
             if (trim == null) trim = GetComponent<AssistedTrimController>();
+            if (holdAssist == null)
+                holdAssist = GetComponent<FlightHoldAssistController>();
             if (resetController == null)
                 resetController = GetComponent<AircraftResetController>();
             if (locationManager == null)
                 locationManager = FindAnyObjectByType<AirportLocationManager>();
+            if (navigation == null)
+                navigation = FindAnyObjectByType<NavigationManager>();
         }
 
         private static LessonObjectiveDefinition Objective(
@@ -724,33 +772,72 @@ namespace SimplyFly.GroundOps
                 },
                 new FlightLessonDefinition
                 {
-                    title = "7. Assisted Trim",
+                    title = "7. Beginner Flight Holds",
                     description =
-                        "Capture sustained pitch pressure so the aircraft is easier to hold.",
+                        "Use clearly labeled pitch and vertical-speed assists, then override them safely.",
                     completionMessage =
-                        "TRIM LESSON COMPLETE — Trim reduced workload without becoming autopilot.",
+                        "FLIGHT HOLDS COMPLETE — You used and manually overrode both beginner assists.",
                     objectives = new[]
                     {
-                        Objective("Hold a small amount of S or W for one second.",
-                            "Establish a gentle climb or descent with steady pressure.",
-                            LessonObjectiveCondition.SustainedPitchInput, 0.15f,
-                            holdDuration: 1f, success: "PITCH PRESSURE HELD"),
-                        Objective("Tap T to capture assisted trim.",
-                            "Trim is accepted only in stable, safe flight.",
-                            LessonObjectiveCondition.TrimActive,
-                            success: "TRIM CAPTURED"),
-                        Objective("Release W/S and observe the aircraft.",
-                            "Trim reduces effort, but speed and power still affect the flight path.",
-                            LessonObjectiveCondition.PitchInputReleased, 0.08f,
-                            holdDuration: 1.5f, success: "CONTROLS RELEASED"),
-                        Objective("Make a small pitch correction if needed.",
-                            "The aircraft remains fully controllable after trimming.",
-                            LessonObjectiveCondition.SustainedPitchInput, 0.12f,
-                            holdDuration: 0.5f, success: "TRIM OVERRIDDEN"),
-                        Objective("Press Shift+T to reset trim.",
-                            "The trim marker should return smoothly to neutral.",
-                            LessonObjectiveCondition.TrimNeutral, 0.02f,
-                            holdDuration: 0.5f, success: "TRIM NEUTRAL")
+                        Objective("Press P in stable flight to engage Pitch Hold.",
+                            "Pitch Hold requires safe airspeed, modest bank, and no stall warning.",
+                            LessonObjectiveCondition.PitchHoldActive,
+                            success: "PITCH HOLD ACTIVE"),
+                        Objective("Press W or S firmly to override Pitch Hold.",
+                            "Strong manual pitch input immediately disengages the assist.",
+                            LessonObjectiveCondition.HoldAssistInactive,
+                            success: "PITCH HOLD OVERRIDDEN"),
+                        Objective("Press Alt+P to engage Vertical Speed Hold.",
+                            "The current climb or descent rate is captured within safe limits.",
+                            LessonObjectiveCondition.VerticalSpeedHoldActive,
+                            success: "VS HOLD ACTIVE"),
+                        Objective("Press W or S firmly to override VS Hold.",
+                            "The assist must always yield to the pilot.",
+                            LessonObjectiveCondition.HoldAssistInactive,
+                            success: "VS HOLD OVERRIDDEN")
+                    }
+                },
+                new FlightLessonDefinition
+                {
+                    title = "8. Glide Path and Runway Alignment",
+                    description =
+                        "Practice using the side-view glide profile and top-down lateral aid from a long final.",
+                    completionMessage =
+                        "APPROACH AIDS COMPLETE — You captured the centerline and glide path using visual guidance.",
+                    objectives = new[]
+                    {
+                        Objective(
+                            "Settle between 50 and 70 kt on the long final.",
+                            "The lesson starts slightly right and above the ideal path. Use gentle inputs.",
+                            LessonObjectiveCondition.ApproachSpeed,
+                            50f, 70f, 2f, "APPROACH SPEED SET"),
+                        Objective(
+                            "Use the top-down aid to capture the runway centerline.",
+                            "Bank gently toward the funnel center, then level before crossing it.",
+                            LessonObjectiveCondition.NavigationLateralAligned,
+                            35f, 7f, 2f, "LATERAL PATH CAPTURED"),
+                        Objective(
+                            "Use the side-view aid to capture the green glide path.",
+                            "HIGH: descend gently. LOW: reduce descent or add a little power.",
+                            LessonObjectiveCondition.NavigationGlideAligned,
+                            10f, 0f, 2f, "GLIDE PATH CAPTURED"),
+                        Objective(
+                            "Maintain both aids near center for five seconds.",
+                            "Make small corrections. Avoid chasing every tiny movement.",
+                            LessonObjectiveCondition.NavigationApproachStable,
+                            30f, 9f, 5f, "STABLE FINAL"),
+                        Objective(
+                            "Continue inside 800 m while remaining stable.",
+                            "Watch the helper zoom in and keep the airplane close to the path.",
+                            LessonObjectiveCondition.DistanceToTouchdownBelow,
+                            800f, holdDuration: 1f,
+                            success: "CLOSE APPROACH"),
+                        Objective(
+                            "Continue inside 300 m and observe the flare/touchdown zone.",
+                            "The green path crosses the threshold above the runway and ends in the touchdown zone.",
+                            LessonObjectiveCondition.DistanceToTouchdownBelow,
+                            300f, holdDuration: 1f,
+                            success: "FLARE VIEW REACHED")
                     }
                 }
             };

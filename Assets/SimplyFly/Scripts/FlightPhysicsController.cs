@@ -21,6 +21,14 @@ namespace SimplyFly.GroundOps
         [SerializeField] private StallController stall;
         [SerializeField] private FlapController flaps;
         [SerializeField] private AssistedTrimController trim;
+        [SerializeField] private FlightHoldAssistController holdAssist;
+        [SerializeField] private WindController wind;
+        [Header("Grounded wind response")]
+        [Tooltip("Fraction of aerodynamic wind force retained while parked. Airspeed remains wind-relative for instruments.")]
+        [Range(0f, 0.25f)] [SerializeField]
+        private float parkedAerodynamicForceMultiplier = 0.015f;
+        [Tooltip("Ground speed at which normal aerodynamic forces have fully returned.")]
+        [Min(1f)] [SerializeField] private float groundedAeroRestoreSpeed = 18f;
         [SerializeField] private Transform[] groundCheckPoints;
 
         [Header("Model axes")]
@@ -227,6 +235,9 @@ namespace SimplyFly.GroundOps
         public float HorizontalGroundSpeed { get; private set; }
         public float CurrentLiftMultiplier { get; private set; } = 1f;
         public float CurrentDragMultiplier { get; private set; } = 1f;
+        public Vector3 WindVelocity { get; private set; }
+        public float HeadwindKnots => wind == null ? 0f : wind.HeadwindKnots;
+        public float CrosswindKnots => wind == null ? 0f : wind.CrosswindKnots;
 
         private Rigidbody body;
         private float smoothedElevator;
@@ -250,36 +261,42 @@ namespace SimplyFly.GroundOps
             if (stall == null) stall = GetComponent<StallController>();
             if (flaps == null) flaps = GetComponent<FlapController>();
             if (trim == null) trim = GetComponent<AssistedTrimController>();
+            if (holdAssist == null)
+                holdAssist = GetComponent<FlightHoldAssistController>();
+            ResolveWind();
             RepairLegacyTuning();
             ApplyStateConstraints();
         }
 
         private void FixedUpdate()
         {
-            Vector3 velocity = body.linearVelocity;
+            ResolveWind();
+            Vector3 groundVelocity = body.linearVelocity;
+            WindVelocity = wind == null ? Vector3.zero : wind.CurrentWindVelocity;
+            Vector3 airVelocity = groundVelocity - WindVelocity;
             Vector3 forward = transform.TransformDirection(localForwardAxis.normalized);
             Vector3 pitchAxis = transform.TransformDirection(localPitchAxis.normalized);
             PitchRateDegrees =
                 Vector3.Dot(body.angularVelocity, pitchAxis) * Mathf.Rad2Deg;
 
-            Airspeed = velocity.magnitude;
-            ForwardVelocity = Vector3.Dot(velocity, forward);
-            LateralVelocity = Vector3.Dot(velocity, transform.right);
+            Airspeed = airVelocity.magnitude;
+            ForwardVelocity = Vector3.Dot(airVelocity, forward);
+            LateralVelocity = Vector3.Dot(airVelocity, transform.right);
             ForwardAirflowSpeed = Mathf.Max(0f, ForwardVelocity);
             LateralAirflowSpeed = LateralVelocity;
-            EffectiveAirflowDirection = velocity.sqrMagnitude > 0.01f
-                ? -velocity.normalized
+            EffectiveAirflowDirection = airVelocity.sqrMagnitude > 0.01f
+                ? -airVelocity.normalized
                 : -forward;
-            HorizontalGroundSpeed = Vector3.ProjectOnPlane(velocity, Vector3.up).magnitude;
+            HorizontalGroundSpeed = Vector3.ProjectOnPlane(groundVelocity, Vector3.up).magnitude;
             UpdateHeading(forward);
-            VerticalSpeed = Vector3.Dot(velocity, Vector3.up);
-            FlightPathAngle = Airspeed > 0.1f
+            VerticalSpeed = Vector3.Dot(groundVelocity, Vector3.up);
+            FlightPathAngle = groundVelocity.magnitude > 0.1f
                 ? Mathf.Asin(Mathf.Clamp(
-                    Vector3.Dot(velocity.normalized, Vector3.up), -1f, 1f)) *
+                    Vector3.Dot(groundVelocity.normalized, Vector3.up), -1f, 1f)) *
                   Mathf.Rad2Deg
                 : 0f;
             PitchAngle = Mathf.Asin(Mathf.Clamp(Vector3.Dot(forward, Vector3.up), -1f, 1f)) * Mathf.Rad2Deg;
-            RawAngleOfAttack = CalculateAngleOfAttack(velocity, forward);
+            RawAngleOfAttack = CalculateAngleOfAttack(airVelocity, forward);
             AngleOfAttack = Mathf.Clamp(RawAngleOfAttack, -35f, 35f);
             ElevatorInput = input == null ? 0f : input.ElevatorInput;
             float elevatorSmoothing = Mathf.Abs(ElevatorInput) > Mathf.Abs(smoothedElevator)
@@ -293,7 +310,7 @@ namespace SimplyFly.GroundOps
             ApplyStateConstraints();
             UpdateBankKinematics(forward);
             AileronInput = State == AircraftState.Airborne && input != null
-                ? input.SteeringInput
+                ? input.AileronInput
                 : 0f;
             float aileronSmoothing = Mathf.Abs(AileronInput) > Mathf.Abs(smoothedAileron)
                 ? rollResponse
@@ -306,8 +323,8 @@ namespace SimplyFly.GroundOps
                 groundMovement.SetFlightTransition(
                     State != AircraftState.GroundRoll, IsPhysicallyGrounded);
 
-            ApplyLift(velocity, pitchAxis);
-            ApplyDrag(velocity);
+            ApplyLift(airVelocity, pitchAxis);
+            ApplyDrag(airVelocity);
             ApplyPitch(pitchAxis);
 
             if (!IsPhysicallyGrounded)
@@ -366,7 +383,10 @@ namespace SimplyFly.GroundOps
                 ? Mathf.Lerp(levelLiftFactor, 1f + pitchLiftInfluence, normalizedAoA)
                 : Mathf.Lerp(levelLiftFactor, 0.12f, -normalizedAoA);
             float weight = body.mass * Physics.gravity.magnitude;
-            LiftForce = Mathf.Min(maxLiftForce, weight * baseLiftRatio * aoaModifier);
+            float groundedAeroFactor = GetGroundedAerodynamicFactor();
+            LiftForce = Mathf.Min(
+                maxLiftForce,
+                weight * baseLiftRatio * aoaModifier * groundedAeroFactor);
             LiftPercentOfWeight = weight <= 0f ? 0f : LiftForce / weight * 100f;
 
             Vector3 longitudinalVelocity =
@@ -449,8 +469,20 @@ namespace SimplyFly.GroundOps
             CurrentDragMultiplier = aerodynamicDrag <= 0f
                 ? 1f
                 : dragCoefficient / aerodynamicDrag;
-            DragForce = dragCoefficient * Airspeed * Airspeed;
+            DragForce = dragCoefficient * Airspeed * Airspeed *
+                GetGroundedAerodynamicFactor();
             body.AddForce(-velocity.normalized * DragForce, ForceMode.Force);
+        }
+
+        private float GetGroundedAerodynamicFactor()
+        {
+            if (!IsPhysicallyGrounded) return 1f;
+            float groundSpeedFactor = Mathf.SmoothStep(
+                0f, 1f,
+                Mathf.Clamp01(HorizontalGroundSpeed /
+                              Mathf.Max(1f, groundedAeroRestoreSpeed)));
+            return Mathf.Lerp(
+                parkedAerodynamicForceMultiplier, 1f, groundSpeedFactor);
         }
 
         private void ApplyPitch(Vector3 pitchAxis)
@@ -478,7 +510,9 @@ namespace SimplyFly.GroundOps
                 ? 0f
                 : trim.PitchCommandOffset * (1f - playerOverride);
             float effectiveElevator = Mathf.Clamp(
-                smoothedElevator + trimCommand,
+                smoothedElevator +
+                trimCommand +
+                (holdAssist == null ? 0f : holdAssist.ElevatorCommand),
                 -1f,
                 1f);
             float commandMoment = pitchAllowed
@@ -635,9 +669,12 @@ namespace SimplyFly.GroundOps
             float errorMagnitude = Mathf.Max(
                 0f, Mathf.Abs(effectiveAoAError) - aoADeadband);
             float softenedError = Mathf.Sign(effectiveAoAError) * errorMagnitude;
+            float activeElevatorCommand =
+                smoothedElevator +
+                (holdAssist == null ? 0f : holdAssist.ElevatorCommand);
             float elevatorDominance = Mathf.SmoothStep(
                 0f, 1f,
-                Mathf.InverseLerp(0.1f, 0.75f, Mathf.Abs(smoothedElevator)));
+                Mathf.InverseLerp(0.1f, 0.75f, Mathf.Abs(activeElevatorCommand)));
             float stabilityBlend = Mathf.Lerp(1f, 0.3f, elevatorDominance);
 
             TailForce = Mathf.Clamp(
@@ -867,6 +904,16 @@ namespace SimplyFly.GroundOps
                     RigidbodyConstraints.FreezeRotationZ,
                 _ => RigidbodyConstraints.None
             };
+        }
+
+        private void ResolveWind()
+        {
+            if (wind != null) return;
+            wind = FindAnyObjectByType<WindController>();
+            if (wind != null) return;
+
+            GameObject windObject = new GameObject("Wind System");
+            wind = windObject.AddComponent<WindController>();
         }
 
         private void RepairLegacyTuning()

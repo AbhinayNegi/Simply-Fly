@@ -14,6 +14,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private TMP_Text airportInfo;
         [SerializeField] private Button runwayButton;
         [SerializeField] private Button finalButton;
+        [SerializeField] private Button parkingButton;
         [SerializeField] private CanvasGroup selectorGroup;
         [SerializeField] private Key toggleKey = Key.O;
 
@@ -40,6 +41,8 @@ namespace SimplyFly.GroundOps
                 runwayButton.onClick.AddListener(SpawnAtRunway);
             if (finalButton != null)
                 finalButton.onClick.AddListener(SpawnOnFinal);
+            if (parkingButton != null)
+                parkingButton.onClick.AddListener(SpawnAtParking);
             if (locationManager != null)
                 locationManager.AirportChanged += RefreshInfo;
             RefreshInfo();
@@ -92,6 +95,11 @@ namespace SimplyFly.GroundOps
         private void SpawnOnFinal()
         {
             locationManager?.SpawnOnFinalApproach();
+        }
+
+        private void SpawnAtParking()
+        {
+            locationManager?.SpawnAtParking();
         }
 
         private void RefreshInfo()

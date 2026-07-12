@@ -10,6 +10,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightPhysicsController flightPhysics;
         [SerializeField] private GroundMovementController groundMovement;
         [SerializeField] private StallController stall;
+        [SerializeField] private WindController wind;
         [SerializeField] private Vector3 localYawAxis = Vector3.up;
 
         [Header("Input response")]
@@ -63,6 +64,7 @@ namespace SimplyFly.GroundOps
             if (groundMovement == null)
                 groundMovement = GetComponent<GroundMovementController>();
             if (stall == null) stall = GetComponent<StallController>();
+            if (wind == null) wind = FindAnyObjectByType<WindController>();
         }
 
         private void FixedUpdate()
@@ -76,8 +78,12 @@ namespace SimplyFly.GroundOps
                 target,
                 response * Time.fixedDeltaTime);
 
+            if (wind == null) wind = FindAnyObjectByType<WindController>();
+            Vector3 airRelativeVelocity =
+                body.linearVelocity -
+                (wind == null ? Vector3.zero : wind.CurrentWindVelocity);
             Vector3 localVelocity =
-                transform.InverseTransformDirection(body.linearVelocity);
+                transform.InverseTransformDirection(airRelativeVelocity);
             LocalLateralVelocity = localVelocity.x;
             LocalForwardVelocity = localVelocity.z;
             float slipAngle = Mathf.Atan2(

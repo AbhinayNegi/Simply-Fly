@@ -16,7 +16,8 @@ namespace SimplyFly.GroundOps
     {
         RunwayStart,
         Airborne,
-        FinalApproach
+        FinalApproach,
+        ParkingApron
     }
 
     public sealed class GameFlowController : MonoBehaviour
@@ -128,6 +129,9 @@ namespace SimplyFly.GroundOps
                         airportManager.SpawnOnFinalApproach();
                     else
                         resetController?.SpawnFinalApproach();
+                    break;
+                case FreeFlightSpawnType.ParkingApron:
+                    airportManager?.SpawnAtParking();
                     break;
             }
         }

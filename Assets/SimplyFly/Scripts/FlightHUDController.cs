@@ -14,9 +14,11 @@ namespace SimplyFly.GroundOps
         [SerializeField] private StallController stall;
         [SerializeField] private FlapController flaps;
         [SerializeField] private AssistedTrimController trim;
+        [SerializeField] private FlightHoldAssistController holdAssist;
         [SerializeField] private AirportLocationManager locationManager;
         [SerializeField] private LandingController landing;
         [SerializeField] private PilotAwarenessAssist awarenessAssist;
+        [SerializeField] private WindController wind;
         [SerializeField] private UIController debugUI;
 
         [Header("HUD views")]
@@ -34,6 +36,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightTrimHUDView trimView;
         [SerializeField] private RudderController rudder;
         [SerializeField] private SlipSkidHUDView slipSkidView;
+        [SerializeField] private TMP_Text holdAssistLabel;
 
         [Header("Display tuning")]
         [SerializeField] private Key hudToggleKey = Key.H;
@@ -49,12 +52,16 @@ namespace SimplyFly.GroundOps
         private readonly Color cautionColor = new Color(1f, 0.75f, 0.18f);
         private readonly Color dangerColor = new Color(1f, 0.2f, 0.12f);
         private bool hudVisible = true;
+        private bool navigationMapSuppressed;
         private LandingController.LandingQuality lastLandingQuality;
         private float landingFeedbackTimer;
 
         private void Awake()
         {
             if (hudGroup == null) hudGroup = GetComponent<CanvasGroup>();
+            if (wind == null) wind = FindAnyObjectByType<WindController>();
+            if (slipSkidView != null)
+                slipSkidView.gameObject.SetActive(false);
             ApplyHUDVisibility();
             if (landingFeedbackGroup != null) landingFeedbackGroup.alpha = 0f;
         }
@@ -78,13 +85,14 @@ namespace SimplyFly.GroundOps
             UpdateAwarenessCue();
             UpdateLandingFeedback();
             trimView?.UpdateView(trim);
-            slipSkidView?.UpdateView(rudder);
+            UpdateHoldAssist();
         }
 
         private void ApplyHUDVisibility()
         {
             if (hudGroup == null) return;
             hudGroup.alpha = hudVisible ? 1f : 0f;
+            if (navigationMapSuppressed) hudGroup.alpha = 0f;
             hudGroup.interactable = false;
             hudGroup.blocksRaycasts = false;
         }
@@ -95,16 +103,29 @@ namespace SimplyFly.GroundOps
             ApplyHUDVisibility();
         }
 
+        public void SetNavigationMapSuppressed(bool suppressed)
+        {
+            navigationMapSuppressed = suppressed;
+            ApplyHUDVisibility();
+        }
+
         private void UpdateInstruments()
         {
             float airspeed = flightPhysics == null ? 0f : flightPhysics.AirspeedKnots;
+            float groundSpeed = flightPhysics == null
+                ? 0f
+                : flightPhysics.HorizontalGroundSpeed * 1.943844f;
+            bool parkedWindAirflow = flightPhysics != null &&
+                flightPhysics.IsPhysicallyGrounded && groundSpeed < 1f;
             float stallSpeed = stall == null ? 42f : stall.EffectiveStallSpeed;
             float flapRatio = flaps == null
                 ? 0f
                 : Mathf.Clamp01(flaps.ActualAngle / 30f);
             float approachMin = safeApproachSpeedMin - flapRatio * 15f;
             float approachMax = safeApproachSpeedMax - flapRatio * 15f;
-            Color speedColor = stall != null && stall.StallWarning
+            Color speedColor = parkedWindAirflow
+                ? normalColor
+                : stall != null && stall.StallWarning
                 ? dangerColor
                 : airspeed < stallSpeed
                     ? dangerColor
@@ -124,8 +145,10 @@ namespace SimplyFly.GroundOps
                             : "STEADY";
             airspeedInstrument?.SetDisplay(
                 $"{airspeed:000}",
-                $"KT  {compactEnergyCue}" +
-                $"\nSTALL < {stallSpeed:0}   APP {approachMin:0}-{approachMax:0}",
+                parkedWindAirflow
+                    ? $"KT\nGROUND SPEED {groundSpeed:0} KT\nWIND AIRFLOW"
+                    : $"KT  {compactEnergyCue}" +
+                      $"\nSTALL < {stallSpeed:0}   APP {approachMin:0}-{approachMax:0}",
                 speedColor);
 
             float altitude = approach != null
@@ -154,6 +177,7 @@ namespace SimplyFly.GroundOps
                 ? $"{(locationManager?.CurrentAirport?.airportName ?? "AIRPORT")}\n" +
                   $"RWY {approach.RunwayHeading:000}°   ERR {approach.AlignmentError:+0.0;-0.0;0.0}°"
                 : "MAGNETIC HEADING";
+            headingDetail = BuildHeadingDetail();
             headingInstrument?.SetDisplay(
                 $"{heading:000}°",
                 headingDetail,
@@ -178,7 +202,8 @@ namespace SimplyFly.GroundOps
         private void UpdateStallWarning()
         {
             if (warningLabel == null) return;
-            bool stallActive = stall != null && stall.StallWarning;
+            bool stallActive = stall != null && stall.StallWarning &&
+                (flightPhysics == null || !flightPhysics.IsPhysicallyGrounded);
             bool flapWarning = flaps != null && flaps.SpeedWarning;
             bool warning = stallActive || flapWarning;
             warningLabel.gameObject.SetActive(warning);
@@ -193,6 +218,20 @@ namespace SimplyFly.GroundOps
             Color warningColor = stallActive ? dangerColor : cautionColor;
             warningLabel.color = Color.Lerp(
                 warningColor, Color.white, blink * 0.45f);
+        }
+
+        private string BuildHeadingDetail()
+        {
+            if (wind == null) wind = FindAnyObjectByType<WindController>();
+            string windDetail = wind == null || !wind.WindEnabled
+                ? "WIND CALM"
+                : $"WIND {wind.WindFromHeading:000}/{wind.WindSpeedKnots:0}  " +
+                  $"HW {wind.HeadwindKnots:+0;-0;0}  XW {wind.CrosswindKnots:+0;-0;0}";
+
+            return approach != null && approach.HasRunwayTarget
+                ? $"{(locationManager?.CurrentAirport?.airportName ?? "AIRPORT")}\n" +
+                  $"RWY {approach.RunwayHeading:000}°\n{windDetail}"
+                : $"MAGNETIC HEADING\n{windDetail}";
         }
 
         private void UpdateAwarenessCue()
@@ -250,6 +289,44 @@ namespace SimplyFly.GroundOps
             landingFeedbackGroup.alpha = landingFeedbackTimer <= 0f
                 ? 0f
                 : Mathf.Clamp01(landingFeedbackTimer / landingFeedbackFadeDuration);
+        }
+
+        private void UpdateHoldAssist()
+        {
+            if (holdAssistLabel == null) return;
+            if (holdAssist == null)
+            {
+                holdAssistLabel.gameObject.SetActive(false);
+                return;
+            }
+
+            string text = holdAssist.TransientMessage;
+            if (string.IsNullOrEmpty(text))
+            {
+                if (holdAssist.PitchHoldActive)
+                    text =
+                        $"PITCH HOLD\nTARGET {holdAssist.TargetPitch:+0.0;-0.0;0.0}°";
+                else if (holdAssist.VerticalSpeedHoldActive)
+                    text =
+                        holdAssist.VerticalSpeedTargetClamped
+                            ? $"VS HOLD\nTARGET {holdAssist.TargetVerticalSpeed:+0.0;-0.0;0.0} m/s  " +
+                              $"(CAPTURED {holdAssist.CapturedVerticalSpeed:+0.0;-0.0;0.0})"
+                            : $"VS HOLD\nTARGET {holdAssist.TargetVerticalSpeed:+0.0;-0.0;0.0} m/s";
+                if (holdAssist.VerticalSpeedHoldActive &&
+                    holdAssist.VerticalSpeedEnergyLimited)
+                    text += "\nADD POWER";
+            }
+
+            bool visible = !string.IsNullOrEmpty(text);
+            holdAssistLabel.gameObject.SetActive(visible);
+            if (!visible) return;
+            holdAssistLabel.text = text;
+            holdAssistLabel.color =
+                text.Contains("DISENGAGED") ||
+                text.Contains("UNAVAILABLE") ||
+                text.Contains("DISABLED")
+                    ? cautionColor
+                    : safeColor;
         }
     }
 }

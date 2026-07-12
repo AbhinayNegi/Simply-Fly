@@ -56,6 +56,14 @@ namespace SimplyFly.GroundOps
         [Range(-4f, 0f)] [SerializeField] private float noseLoweringPitchTarget = -1f;
         [Min(0.01f)] [SerializeField] private float wheelContactTolerance = 0.12f;
 
+        [Header("Landing roll leveling")]
+        [Tooltip("Gentle suspension-like roll correction after a main wheel touches.")]
+        [Min(0f)] [SerializeField] private float landingRollLevelStrength = 0.32f;
+        [Min(0f)] [SerializeField] private float landingRollDamping = 2.8f;
+        [Min(1f)] [SerializeField] private float landingRollLevelMaxSpeedKt = 45f;
+        [Min(0f)] [SerializeField] private float maxLandingRollLevelTorque = 1.4f;
+        [SerializeField] private Vector3 localRollAxis = Vector3.right;
+
         public LandingPhase Phase { get; private set; } = LandingPhase.LandingRoll;
         public bool FlareActive => Phase == LandingPhase.Flare;
         public bool LeftMainTouching { get; private set; }
@@ -128,9 +136,35 @@ namespace SimplyFly.GroundOps
                 UpdateLandingPhase(verticalSpeed);
             ApplyFlareAssist();
             ApplyTouchdownTransition(verticalSpeed);
+            ApplyLandingRollLeveling();
 
             if (landingArmed && !touchdownRecorded && Airborne)
                 previousVerticalSpeed = verticalSpeed;
+        }
+
+        private void ApplyLandingRollLeveling()
+        {
+            if (!MainWheelsTouching || flightPhysics == null) return;
+            float speedKt = flightPhysics.HorizontalGroundSpeed * 1.943844f;
+            if (speedKt > landingRollLevelMaxSpeedKt ||
+                Mathf.Abs(flightPhysics.BankAngle) < 0.15f)
+                return;
+
+            Vector3 rollAxis =
+                transform.TransformDirection(localRollAxis.normalized);
+            float rollRate = Vector3.Dot(body.angularVelocity, rollAxis);
+            float contactBlend = BothMainWheelsTouching ? 1f : 0.55f;
+            float speedBlend = 1f - Mathf.Clamp01(
+                speedKt / Mathf.Max(1f, landingRollLevelMaxSpeedKt));
+            float torque = Mathf.Clamp(
+                -flightPhysics.BankAngle * landingRollLevelStrength -
+                rollRate * landingRollDamping,
+                -maxLandingRollLevelTorque,
+                maxLandingRollLevelTorque);
+            body.AddTorque(
+                rollAxis * torque * contactBlend *
+                Mathf.Lerp(0.55f, 1f, speedBlend),
+                ForceMode.Acceleration);
         }
 
         private void UpdateWheelContacts()

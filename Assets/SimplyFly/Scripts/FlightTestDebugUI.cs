@@ -93,7 +93,7 @@ namespace SimplyFly.GroundOps
                 { text = "◀ F6" };
             Button next = new Button(() => runner?.SelectNextScenario())
                 { text = "F7 ▶" };
-            runButton = new Button(ToggleScenario) { text = "RUN  F9" };
+            runButton = new Button(ToggleScenario) { text = "RUN  F12" };
             StyleButton(previous, 92f);
             StyleButton(runButton, 150f);
             StyleButton(next, 92f);
@@ -178,7 +178,7 @@ namespace SimplyFly.GroundOps
             pathLabel.text = string.IsNullOrWhiteSpace(recorder.LastCsvPath)
                 ? "LAST EXPORT —"
                 : $"CSV  {recorder.LastCsvPath}\nJSON  {recorder.LastJsonPath}";
-            runButton.text = runner.IsRunning ? "STOP TEST  F9" : "RUN  F9";
+            runButton.text = runner.IsRunning ? "STOP TEST  F12" : "RUN  F12";
             manualButton.text = recorder.IsRecording
                 ? "STOP RECORDING  F8"
                 : "START MANUAL RECORDING  F8";

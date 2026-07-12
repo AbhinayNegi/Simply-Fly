@@ -16,7 +16,7 @@ namespace SimplyFly.Editor
     [InitializeOnLoad]
     public static class GroundOperationsSceneSetup
     {
-        private const string SetupMarkerName = "Banked Flight Stability v1";
+        private const string SetupMarkerName = "Wind And 2D Approach Aids v6";
         private const string FlightSchoolPanelSettingsPath =
             "Assets/SimplyFly/UI/FlightSchoolPanelSettings.asset";
         private const string SideViewAircraftAssetPath =
@@ -295,6 +295,9 @@ namespace SimplyFly.Editor
             CreateSurface("Sock", windsock.transform,
                 new Vector3(-895f, 15f, 70f), new Vector3(10f, 1.8f, 1.8f),
                 new Color(1f, 0.28f, 0.06f), false);
+            WindsockController trainingSock =
+                GetOrAdd<WindsockController>(windsock);
+            SetObject(trainingSock, "sock", windsock.transform.Find("Sock"));
 
             CreateTrainingFieldPolish(airport);
 
@@ -315,6 +318,53 @@ namespace SimplyFly.Editor
 
             CreateValleyAirstripEnvironment();
             CreateCoastalAirportEnvironment();
+            RemoveGeneratedMapObstacles(airport);
+        }
+
+        private static void RemoveGeneratedMapObstacles(GameObject trainingRoot)
+        {
+            if (trainingRoot != null)
+            {
+                DestroyChildIfExists(
+                    trainingRoot.transform, "Training Buildings");
+                DestroyChildIfExists(
+                    trainingRoot.transform, "Distant Boundaries");
+                Transform polish =
+                    trainingRoot.transform.Find("Training Field Polish");
+                if (polish != null)
+                    DestroyChildIfExists(polish, "Airport Objects");
+            }
+
+            GameObject valley =
+                FindSceneObject("Valley Airstrip Environment");
+            if (valley != null)
+            {
+                DestroyChildIfExists(valley.transform, "Valley Hills");
+                Transform guides =
+                    valley.transform.Find("Valley Visual Guides");
+                if (guides != null)
+                    DestroyChildIfExists(guides, "Valley Hangar");
+                RemovePrototypeBuildings(
+                    valley.transform.Find("Valley Runway/Airport Polish"));
+            }
+
+            GameObject coastal =
+                FindSceneObject("Coastal Airport Environment");
+            if (coastal != null)
+            {
+                DestroyChildIfExists(
+                    coastal.transform, "Coastal Landmarks");
+                RemovePrototypeBuildings(
+                    coastal.transform.Find("Coastal Runway/Airport Polish"));
+            }
+        }
+
+        private static void RemovePrototypeBuildings(Transform polish)
+        {
+            if (polish == null) return;
+            DestroyChildIfExists(polish, "Hangar");
+            DestroyChildIfExists(polish, "Hangar Door");
+            DestroyChildIfExists(polish, "Operations Hut");
         }
 
         private static void CreateTrainingFieldPolish(GameObject airport)
@@ -507,6 +557,26 @@ namespace SimplyFly.Editor
             CreateSurface("Valley Hangar", guides.transform,
                 new Vector3(140f, 9f, 180f), new Vector3(45f, 18f, 35f),
                 new Color(0.38f, 0.36f, 0.32f), false);
+            Transform valleyRunway = FindSceneObject("Valley Runway")?.transform;
+            if (valleyRunway != null)
+                CreatePrototypeAirportFacilities(
+                    valleyRunway, 1500f, 32f, "02", "20",
+                    new Color(0.42f, 0.4f, 0.34f));
+            GameObject valleyScenery =
+                FindOrCreateChild(root.transform, "Valley Scenery");
+            for (int index = -6; index <= 6; index++)
+            {
+                float z = index * 260f;
+                CreateSimpleTree(valleyScenery.transform,
+                    new Vector3(-430f, 0f, z + 80f), $"West Valley Tree {index}");
+                CreateSimpleTree(valleyScenery.transform,
+                    new Vector3(460f, 0f, z - 60f), $"East Valley Tree {index}");
+                if (index % 2 == 0)
+                    CreateSurface($"Valley Rock {index}", valleyScenery.transform,
+                        new Vector3(350f, 3f, z + 110f),
+                        new Vector3(12f, 6f, 9f),
+                        new Color(0.3f, 0.29f, 0.25f), false);
+            }
             root.SetActive(false);
         }
 
@@ -553,6 +623,23 @@ namespace SimplyFly.Editor
                     new Vector3(90f, 24f + (index % 3) * 8f, 90f),
                     new Color(0.42f, 0.43f, 0.4f), false);
             }
+            Transform coastalRunway = FindSceneObject("Coastal Runway")?.transform;
+            if (coastalRunway != null)
+                CreatePrototypeAirportFacilities(
+                    coastalRunway, 1800f, 38f, "06", "24",
+                    new Color(0.35f, 0.42f, 0.45f));
+            GameObject coastalScenery =
+                FindOrCreateChild(root.transform, "Coastal Scenery");
+            CreateSurface("Coast Road", coastalScenery.transform,
+                new Vector3(500f, 0f, 1260f), new Vector3(2400f, 0.08f, 12f),
+                new Color(0.18f, 0.18f, 0.17f), false);
+            for (int index = 0; index < 14; index++)
+            {
+                float x = -700f + index * 180f;
+                CreateSimpleTree(coastalScenery.transform,
+                    new Vector3(x, 0f, 1150f + (index % 3) * 90f),
+                    $"Coastal Tree {index}");
+            }
             root.SetActive(false);
         }
 
@@ -586,6 +673,36 @@ namespace SimplyFly.Editor
                     new Vector3(0f, 0.015f, z),
                     new Vector3(0.35f, 0.025f, 18f), Color.white, false);
             }
+            GameObject thresholdMarkings =
+                FindOrCreateChild(runway.transform, "Threshold Markings");
+            for (int end = -1; end <= 1; end += 2)
+            {
+                for (int stripe = 0; stripe < 6; stripe++)
+                {
+                    float x = -width * 0.38f + stripe * width * 0.152f;
+                    CreateSurface($"Threshold {end} {stripe}", thresholdMarkings.transform,
+                        new Vector3(x, 0.018f, end * (length * 0.5f - 25f)),
+                        new Vector3(1.4f, 0.025f, 18f), Color.white, false);
+                }
+                for (float z = 70f; z < length * 0.5f - 20f; z += 100f)
+                {
+                    CreateSurface($"Edge Light {end} {z:0} Left", runway.transform,
+                        new Vector3(-width * 0.5f - 0.7f, 0.3f, end * z),
+                        new Vector3(0.45f, 0.6f, 0.45f),
+                        new Color(0.75f, 0.9f, 1f), false);
+                    CreateSurface($"Edge Light {end} {z:0} Right", runway.transform,
+                        new Vector3(width * 0.5f + 0.7f, 0.3f, end * z),
+                        new Vector3(0.45f, 0.6f, 0.45f),
+                        new Color(0.75f, 0.9f, 1f), false);
+                }
+                for (int light = 1; light <= 7; light++)
+                {
+                    CreateSurface($"Approach Light {end} {light}", runway.transform,
+                        new Vector3(0f, 0.28f,
+                            end * (length * 0.5f + light * 24f)),
+                        new Vector3(0.5f, 0.55f, 0.5f), Color.white, false);
+                }
+            }
 
             GameObject threshold = FindOrCreateChild(runway.transform, thresholdName);
             threshold.transform.localPosition = new Vector3(0f, 0f, -length * 0.5f);
@@ -600,6 +717,65 @@ namespace SimplyFly.Editor
             CreateSurface("Top Bar", threshold.transform,
                 new Vector3(0f, 18f, 0f),
                 new Vector3(width + 1f, 1f, 1f), targetColor, false);
+        }
+
+        private static void CreatePrototypeAirportFacilities(
+            Transform runway,
+            float length,
+            float width,
+            string nearRunwayNumber,
+            string farRunwayNumber,
+            Color buildingColor)
+        {
+            GameObject details = FindOrCreateChild(runway, "Airport Polish");
+            CreateRunwayNumber(details.transform, nearRunwayNumber,
+                new Vector3(0f, 0.025f, -length * 0.5f + 115f), 0f, Color.white);
+            CreateRunwayNumber(details.transform, farRunwayNumber,
+                new Vector3(0f, 0.025f, length * 0.5f - 115f), 180f, Color.white);
+
+            float apronSide = width * 0.5f + 75f;
+            float apronAlong = -length * 0.17f;
+            CreateSurface("Taxiway", details.transform,
+                new Vector3(apronSide * 0.5f, -0.06f, apronAlong),
+                new Vector3(apronSide, 0.13f, 15f),
+                new Color(0.13f, 0.14f, 0.15f));
+            CreateSurface("Apron", details.transform,
+                new Vector3(apronSide + 42f, -0.055f, apronAlong),
+                new Vector3(90f, 0.14f, 72f),
+                new Color(0.13f, 0.14f, 0.15f));
+            CreateSurface("Taxi Line", details.transform,
+                new Vector3(apronSide * 0.5f, 0.016f, apronAlong),
+                new Vector3(apronSide, 0.025f, 0.28f),
+                new Color(0.95f, 0.72f, 0.08f), false);
+            CreateSurface("Parking Tee", details.transform,
+                new Vector3(apronSide + 40f, 0.018f, apronAlong),
+                new Vector3(0.3f, 0.025f, 22f),
+                new Color(0.95f, 0.72f, 0.08f), false);
+
+            CreateSurface("Hangar", details.transform,
+                new Vector3(apronSide + 85f, 9f, apronAlong + 55f),
+                new Vector3(55f, 18f, 38f), buildingColor);
+            CreateSurface("Hangar Door", details.transform,
+                new Vector3(apronSide + 85f, 7f, apronAlong + 35.8f),
+                new Vector3(30f, 14f, 0.5f),
+                new Color(0.05f, 0.06f, 0.065f), false);
+            CreateSurface("Operations Hut", details.transform,
+                new Vector3(apronSide + 25f, 4f, apronAlong + 58f),
+                new Vector3(16f, 8f, 13f), buildingColor);
+            CreateSurface("Windsock Pole", details.transform,
+                new Vector3(apronSide + 10f, 7f, apronAlong - 55f),
+                new Vector3(0.4f, 14f, 0.4f), Color.white, false);
+            CreateSurface("Windsock", details.transform,
+                new Vector3(apronSide + 15f, 13f, apronAlong - 55f),
+                new Vector3(10f, 1.5f, 1.5f),
+                new Color(1f, 0.25f, 0.05f), false);
+
+            CreatePapi(details.transform,
+                new Vector3(-width * 0.5f - 7f, 0.45f, -length * 0.5f + 90f),
+                "Near PAPI");
+            CreatePapi(details.transform,
+                new Vector3(width * 0.5f + 7f, 0.45f, length * 0.5f - 90f),
+                "Far PAPI");
         }
 
         private static void ConfigureAircraft(GameObject aircraft, GameObject visual)
@@ -644,7 +820,7 @@ namespace SimplyFly.Editor
 
             AircraftInput input = GetOrAdd<AircraftInput>(aircraft);
             SetInt(input, "resetCameraKey",
-                (int)UnityEngine.InputSystem.Key.C);
+                (int)UnityEngine.InputSystem.Key.R);
             ThrottleController throttle = GetOrAdd<ThrottleController>(aircraft);
             EngineController engine = GetOrAdd<EngineController>(aircraft);
             BrakeController brakes = GetOrAdd<BrakeController>(aircraft);
@@ -654,6 +830,8 @@ namespace SimplyFly.Editor
             RudderController rudder = GetOrAdd<RudderController>(aircraft);
             FlapController flaps = GetOrAdd<FlapController>(aircraft);
             AssistedTrimController trim = GetOrAdd<AssistedTrimController>(aircraft);
+            FlightHoldAssistController holdAssist =
+                GetOrAdd<FlightHoldAssistController>(aircraft);
             StallController stall = GetOrAdd<StallController>(aircraft);
             ApproachGuidanceController approach =
                 GetOrAdd<ApproachGuidanceController>(aircraft);
@@ -731,6 +909,10 @@ namespace SimplyFly.Editor
             SetObject(flightPhysics, "stall", stall);
             SetObject(flightPhysics, "flaps", flaps);
             SetObject(flightPhysics, "trim", trim);
+            SetObject(flightPhysics, "holdAssist", holdAssist);
+            SetObject(flightPhysics, "wind",
+                FindSceneObject("Airport Location System")?
+                    .GetComponent<WindController>());
             SetArray(flightPhysics, "groundCheckPoints",
                 new Object[] { left.transform, right.transform, nose.transform });
             SetVector3(flightPhysics, "localForwardAxis", Vector3.forward);
@@ -842,6 +1024,9 @@ namespace SimplyFly.Editor
             SetObject(rudder, "flightPhysics", flightPhysics);
             SetObject(rudder, "groundMovement", movement);
             SetObject(rudder, "stall", stall);
+            SetObject(rudder, "wind",
+                FindSceneObject("Airport Location System")?
+                    .GetComponent<WindController>());
             SetVector3(rudder, "localYawAxis", Vector3.up);
             SetFloat(rudder, "rudderSmoothing", 2.5f);
             SetFloat(rudder, "rudderReturnSpeed", 4f);
@@ -876,6 +1061,7 @@ namespace SimplyFly.Editor
             SetObject(trim, "stall", stall);
             SetObject(trim, "flaps", flaps);
             SetObject(trim, "throttle", throttle);
+            SetBool(trim, "trimEnabled", false);
             SetFloat(trim, "trimCaptureSpeed", 0.22f);
             SetFloat(trim, "trimResponseSpeed", 0.16f);
             SetFloat(trim, "maximumNoseUpTrim", 0.38f);
@@ -889,6 +1075,38 @@ namespace SimplyFly.Editor
             SetFloat(trim, "trimCaptureMaxBank", 30f);
             SetFloat(trim, "trimCaptureMaxPitchRate", 8f);
             SetFloat(trim, "trimCaptureMaxVerticalSpeed", 8f);
+            SetObject(holdAssist, "input", input);
+            SetObject(holdAssist, "flightPhysics", flightPhysics);
+            SetObject(holdAssist, "stall", stall);
+            SetBool(holdAssist, "pitchHoldEnabled", true);
+            SetBool(holdAssist, "verticalSpeedHoldEnabled", true);
+            SetFloat(holdAssist, "pitchHoldAssistStrength", 0.08f);
+            SetFloat(holdAssist, "pitchHoldIntegralStrength", 0.04f);
+            SetFloat(holdAssist, "pitchHoldIntegralLimit", 0.32f);
+            SetFloat(holdAssist, "pitchHoldMaxElevatorAuthority", 0.45f);
+            SetFloat(holdAssist, "pitchHoldResponseSpeed", 1.1f);
+            SetFloat(holdAssist, "pitchHoldDamping", 0.018f);
+            SetFloat(holdAssist, "pitchHoldMaxPitchUp", 15f);
+            SetFloat(holdAssist, "pitchHoldMaxPitchDown", -10f);
+            SetFloat(holdAssist, "pitchHoldManualInputThreshold", 0.25f);
+            SetFloat(holdAssist, "pitchHoldMinAirspeed", 50f);
+            SetFloat(holdAssist, "pitchHoldMaxBankAngle", 35f);
+            SetFloat(holdAssist, "vsHoldAssistStrength", 0.18f);
+            SetFloat(holdAssist, "vsHoldIntegralStrength", 0.06f);
+            SetFloat(holdAssist, "vsHoldIntegralLimit", 0.5f);
+            SetFloat(holdAssist, "vsHoldMaxElevatorAuthority", 0.65f);
+            SetFloat(holdAssist, "vsHoldResponseSpeed", 1.35f);
+            SetFloat(holdAssist, "vsHoldDamping", 0.015f);
+            SetFloat(holdAssist, "vsHoldLowSpeedAuthorityBoost", 1.45f);
+            SetFloat(holdAssist, "vsHoldMaxClimbRate", 3f);
+            SetFloat(holdAssist, "vsHoldMaxDescentRate", -3f);
+            SetFloat(holdAssist, "vsHoldTargetStep", 0.25f);
+            SetFloat(holdAssist, "mouseScrollThreshold", 1f);
+            SetBool(holdAssist, "vsHoldDisengageOnLowSpeed", false);
+            SetBool(holdAssist, "vsHoldAllowedOnGround", true);
+            SetFloat(holdAssist, "vsHoldMinAirspeed", 52f);
+            SetFloat(holdAssist, "vsHoldMaxBankAngle", 35f);
+            SetFloat(holdAssist, "vsHoldManualInputThreshold", 0.25f);
             SetObject(propellerController, "engine", engine);
             SetObject(propellerController, "propeller", propeller);
             SetFloat(propellerController, "blurStartRPM", 600f);
@@ -946,6 +1164,7 @@ namespace SimplyFly.Editor
             SetObject(ui, "stall", stall);
             SetObject(ui, "flaps", flaps);
             SetObject(ui, "trim", trim);
+            SetObject(ui, "holdAssist", holdAssist);
             SetObject(ui, "aircraftAudio", audio);
             SetObject(ui, "rudder", rudder);
             SetObject(ui, "resetController", resetController);
@@ -989,6 +1208,7 @@ namespace SimplyFly.Editor
             SetObject(resetController, "stall", stall);
             SetObject(resetController, "flaps", flaps);
             SetObject(resetController, "trim", trim);
+            SetObject(resetController, "holdAssist", holdAssist);
             SetObject(resetController, "rudder", rudder);
             SetObject(resetController, "propeller", propellerController);
             SetVector3(resetController, "airborneTestPosition",
@@ -1033,9 +1253,11 @@ namespace SimplyFly.Editor
                 FindSceneObject("Coastal Threshold Target")?.transform;
 
             Vector3 valleyForward = Quaternion.Euler(0f, 15f, 0f) * Vector3.forward;
+            Vector3 valleyRight = Quaternion.Euler(0f, 15f, 0f) * Vector3.right;
             Vector3 valleyThresholdPosition = -valleyForward * 750f;
             Vector3 coastalCenter = new Vector3(500f, 0f, 700f);
             Vector3 coastalForward = Quaternion.Euler(0f, 60f, 0f) * Vector3.forward;
+            Vector3 coastalRight = Quaternion.Euler(0f, 60f, 0f) * Vector3.right;
             Vector3 coastalThresholdPosition = coastalCenter - coastalForward * 900f;
 
             SerializedObject serialized = new SerializedObject(manager);
@@ -1065,7 +1287,7 @@ namespace SimplyFly.Editor
                 1500f,
                 32f,
                 valleyThresholdPosition + valleyForward * 55f + Vector3.up * 1.73f,
-                valleyThresholdPosition + valleyForward * 55f + Vector3.up * 1.73f,
+                valleyRight * 131f - valleyForward * 255f + Vector3.up * 1.73f,
                 new Vector3(0f, 15f, 0f),
                 valleyThresholdPosition - valleyForward * 1400f,
                 120f,
@@ -1082,7 +1304,8 @@ namespace SimplyFly.Editor
                 1800f,
                 38f,
                 coastalThresholdPosition + coastalForward * 60f + Vector3.up * 1.73f,
-                coastalThresholdPosition + coastalForward * 60f + Vector3.up * 1.73f,
+                coastalCenter + coastalRight * 134f -
+                coastalForward * 306f + Vector3.up * 1.73f,
                 new Vector3(0f, 60f, 0f),
                 coastalThresholdPosition - coastalForward * 1500f,
                 105f,
@@ -1099,6 +1322,60 @@ namespace SimplyFly.Editor
             if (coastalRoot != null) coastalRoot.SetActive(false);
             SetObject(reset, "locationManager", manager);
             SetObject(aircraft.GetComponent<UIController>(), "locationManager", manager);
+
+            NavigationManager navigation = GetOrAdd<NavigationManager>(system);
+            WindController wind = GetOrAdd<WindController>(system);
+            SetObject(wind, "airportLocation", manager);
+            SetBool(wind, "windEnabled", true);
+            SetFloat(wind, "windFromHeading", 180f);
+            SetFloat(wind, "windSpeedKnots", 7f);
+            SetBool(wind, "gustsEnabled", true);
+            SetFloat(wind, "gustStrengthKnots", 2.5f);
+            SetFloat(wind, "gustFrequency", 0.12f);
+            SetFloat(wind, "gustDirectionVariation", 8f);
+            ConfigureSceneWindsocks(wind);
+            SetObject(navigation, "airports", manager);
+            SetObject(navigation, "aircraft", aircraft.transform);
+            SetObject(navigation, "flightPhysics",
+                aircraft.GetComponent<FlightPhysicsController>());
+            SetObject(navigation, "landing",
+                aircraft.GetComponent<LandingController>());
+            SetObject(aircraft.GetComponent<UIController>(),
+                "navigation", navigation);
+            SetObject(aircraft.GetComponent<UIController>(), "wind", wind);
+            SetFloat(navigation, "normalCaptureRadius", 400f);
+            SetFloat(navigation, "arrivalCaptureRadius", 1200f);
+            SetFloat(navigation, "finalCaptureRadius", 300f);
+            SetFloat(navigation, "glideSlopeDegrees", 3f);
+            SetFloat(navigation, "finalApproachDistance", 4000f);
+            SetFloat(navigation, "defaultCruiseAltitudeMeters", 300f);
+            SetFloat(navigation, "defaultPatternAltitudeMeters", 280f);
+            SetFloat(navigation, "defaultClimbOutAltitudeMeters", 150f);
+            SetFloat(navigation, "defaultArrivalAltitudeMeters", 250f);
+            SetFloat(
+                navigation, "minimumSafeTerrainClearanceMeters", 100f);
+            SetFloat(navigation, "altitudeToleranceMeters", 30f);
+            SetFloat(navigation, "finalAltitudeToleranceMeters", 10f);
+            SetBool(navigation, "approachValidationEnabled", true);
+            SetFloat(navigation, "approachDistanceKm", 3f);
+            SetFloat(navigation, "approachCorridorWidthFar", 300f);
+            SetFloat(navigation, "approachCorridorWidthNear", 80f);
+            SetFloat(navigation, "approachVerticalClearanceAbove", 60f);
+            SetFloat(navigation, "approachVerticalClearanceBelow", 30f);
+            SetFloat(navigation, "approachObstacleMargin", 20f);
+            SetInt(navigation, "validationSamples", 36);
+            SetFloat(navigation, "terrainMinimumClearance", 18f);
+            SetFloat(navigation, "terrainCheckStartDistance", 500f);
+            SetBool(navigation, "useTouchdownPointForGlideSlope", true);
+            SetFloat(
+                navigation,
+                "touchdownTargetDistanceFromThresholdMeters",
+                220f);
+            SetFloat(navigation, "thresholdCrossingHeightMeters", 12f);
+            SetFloat(
+                navigation,
+                "thresholdCrossingHeightToleranceMeters",
+                5f);
         }
 
         private static void ConfigureAirportDefinition(
@@ -1140,6 +1417,27 @@ namespace SimplyFly.Editor
                 approachSpeed;
             property.FindPropertyRelative("environmentRoot").objectReferenceValue =
                 environmentRoot;
+        }
+
+        private static void ConfigureSceneWindsocks(WindController wind)
+        {
+            if (wind == null) return;
+            foreach (Transform transform in Object.FindObjectsByType<Transform>())
+            {
+                if (transform == null) continue;
+                bool isRoot =
+                    transform.name.Contains("Training Windsock") ||
+                    transform.Find("Windsock") != null ||
+                    transform.Find("Sock") != null;
+                if (!isRoot) continue;
+                Transform sock = transform.Find("Sock") ??
+                                 transform.Find("Windsock");
+                if (sock == null) continue;
+                WindsockController controller =
+                    GetOrAdd<WindsockController>(transform.gameObject);
+                SetObject(controller, "wind", wind);
+                SetObject(controller, "sock", sock);
+            }
         }
 
         private static void ConfigureHUD(GameObject aircraft)
@@ -1227,6 +1525,7 @@ namespace SimplyFly.Editor
                 GetOrAdd<SlipSkidHUDView>(slipPanel);
             SetObject(slipView, "indicatorLabel", slipIndicator);
             SetObject(slipView, "detailLabel", slipDetail);
+            slipPanel.SetActive(false);
 
             TextMeshProUGUI warning = CreateHUDText(
                 hud.transform, "Flight Warning", new Vector2(0.5f, 1f),
@@ -1241,6 +1540,26 @@ namespace SimplyFly.Editor
                 new Vector2(520f, 32f), 20f, TextAlignmentOptions.Center);
             awarenessLabel.fontStyle = FontStyles.Bold;
             awarenessLabel.raycastTarget = false;
+
+            GameObject holdPanel =
+                FindOrCreateUIChild(hud.transform, "Flight Hold Assist");
+            RectTransform holdPanelRect = holdPanel.GetComponent<RectTransform>();
+            SetHUDRect(
+                holdPanelRect,
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f),
+                new Vector2(0f, 165f),
+                new Vector2(350f, 72f));
+            Image holdBackground = GetOrAdd<Image>(holdPanel);
+            holdBackground.color = new Color(0.015f, 0.05f, 0.065f, 0.82f);
+            holdBackground.raycastTarget = false;
+            TextMeshProUGUI holdAssistLabel = CreateHUDText(
+                holdPanel.transform, "Status",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(330f, 62f),
+                17f, TextAlignmentOptions.Center);
+            holdAssistLabel.fontStyle = FontStyles.Bold;
+            holdAssistLabel.gameObject.SetActive(false);
 
             ConfigureSideViewTrainingAid(hud.transform, aircraft);
             ConfigureSpeedSensationHUD(hud.transform, aircraft);
@@ -1311,6 +1630,7 @@ namespace SimplyFly.Editor
             SetObject(trimView, "trimMarker", trimMarkerRect);
             SetObject(trimView, "trimMarkerImage", trimMarkerImage);
             SetFloat(trimView, "trimBarWidth", 260f);
+            trimPanel.SetActive(false);
 
             FlightHUDController controller = GetOrAdd<FlightHUDController>(hud);
             SetObject(controller, "engine", aircraft.GetComponent<EngineController>());
@@ -1320,6 +1640,8 @@ namespace SimplyFly.Editor
             SetObject(controller, "stall", aircraft.GetComponent<StallController>());
             SetObject(controller, "flaps", aircraft.GetComponent<FlapController>());
             SetObject(controller, "trim", aircraft.GetComponent<AssistedTrimController>());
+            SetObject(controller, "holdAssist",
+                aircraft.GetComponent<FlightHoldAssistController>());
             SetObject(controller, "locationManager",
                 FindSceneObject("Airport Location System")?
                     .GetComponent<AirportLocationManager>());
@@ -1342,6 +1664,7 @@ namespace SimplyFly.Editor
             SetObject(controller, "rudder",
                 aircraft.GetComponent<RudderController>());
             SetObject(controller, "slipSkidView", slipView);
+            SetObject(controller, "holdAssistLabel", holdAssistLabel);
             SetFloat(controller, "safeApproachSpeedMin", 65f);
             SetFloat(controller, "safeApproachSpeedMax", 75f);
             SetFloat(controller, "touchdownBankWarningAngle", 5f);
@@ -1465,11 +1788,16 @@ namespace SimplyFly.Editor
                 aircraft.GetComponent<FlapController>());
             SetObject(lessonSystem, "trim",
                 aircraft.GetComponent<AssistedTrimController>());
+            SetObject(lessonSystem, "holdAssist",
+                aircraft.GetComponent<FlightHoldAssistController>());
             SetObject(lessonSystem, "resetController",
                 aircraft.GetComponent<AircraftResetController>());
             SetObject(lessonSystem, "locationManager",
                 FindSceneObject("Airport Location System")?
                     .GetComponent<AirportLocationManager>());
+            SetObject(lessonSystem, "navigation",
+                FindSceneObject("Airport Location System")?
+                    .GetComponent<NavigationManager>());
 
             UnityEngine.UIElements.PanelSettings panelSettings =
                 AssetDatabase.LoadAssetAtPath<
@@ -1508,7 +1836,7 @@ namespace SimplyFly.Editor
                 FindSceneObject("Side View Training Aid")?
                     .GetComponent<SideViewTrainingAid>());
             SetInt(schoolUI, "toggleKey",
-                (int)UnityEngine.InputSystem.Key.G);
+                (int)UnityEngine.InputSystem.Key.Y);
         }
 
         private static void ConfigureGameStructure(GameObject aircraft)
@@ -1518,6 +1846,22 @@ namespace SimplyFly.Editor
                 new GameObject("Simply Fly Game Structure");
             GameSettingsManager settings =
                 GetOrAdd<GameSettingsManager>(structureObject);
+            MouseYokeController mouseYoke =
+                GetOrAdd<MouseYokeController>(aircraft);
+            WeatherManager weather = GetOrAdd<WeatherManager>(structureObject);
+            SetObject(weather, "sun",
+                FindSceneObject("Directional Light")?.GetComponent<Light>());
+            SetObject(weather, "targetCamera", Camera.main);
+            SetObject(weather, "wind",
+                FindSceneObject("Airport Location System")?
+                    .GetComponent<WindController>());
+            SetObject(weather, "airports",
+                FindSceneObject("Airport Location System")?
+                    .GetComponent<AirportLocationManager>());
+            SetObject(settings, "weather", weather);
+            SetObject(settings, "mouseYoke", mouseYoke);
+            SetObject(aircraft.GetComponent<AircraftInput>(),
+                "mouseYoke", mouseYoke);
             SetObject(settings, "aircraftAudio",
                 aircraft.GetComponent<AircraftAudioController>());
             SetObject(settings, "awarenessAssist",
@@ -1534,6 +1878,15 @@ namespace SimplyFly.Editor
                     : Camera.main.GetComponent<CameraController>());
             SetObject(settings, "debugUI",
                 aircraft.GetComponent<UIController>());
+            SetObject(settings, "trim",
+                aircraft.GetComponent<AssistedTrimController>());
+            SetObject(settings, "holdAssist",
+                aircraft.GetComponent<FlightHoldAssistController>());
+            NavigationManager navigation =
+                FindSceneObject("Airport Location System")?
+                    .GetComponent<NavigationManager>();
+            SetObject(settings, "navigation", navigation);
+            SetObject(aircraft.GetComponent<UIController>(), "weather", weather);
 
             GameFlowController flow =
                 GetOrAdd<GameFlowController>(structureObject);
@@ -1571,8 +1924,51 @@ namespace SimplyFly.Editor
             SetObject(menu, "lessons",
                 aircraft.GetComponent<FlightLessonSystem>());
             SetObject(menu, "settings", settings);
+            SetObject(menu, "navigation", navigation);
             SetObject(menu, "uiClickClip",
                 AssetDatabase.LoadAssetAtPath<AudioClip>(UIClickAssetPath));
+
+            GameObject navigationUIObject =
+                FindSceneObject("Navigation UI") ??
+                new GameObject("Navigation UI");
+            UnityEngine.UIElements.UIDocument navigationDocument =
+                GetOrAdd<UnityEngine.UIElements.UIDocument>(navigationUIObject);
+            navigationDocument.panelSettings = panelSettings;
+            navigationDocument.sortingOrder = 120;
+            NavigationUI navigationUI =
+                GetOrAdd<NavigationUI>(navigationUIObject);
+            SetObject(navigationUI, "navigation", navigation);
+            SetObject(navigationUI, "flightPhysics",
+                aircraft.GetComponent<FlightPhysicsController>());
+            SetObject(navigationUI, "gameFlow", flow);
+            SetObject(navigationUI, "pitchCoach",
+                FindSceneObject("Side View Training Aid")?
+                    .GetComponent<SideViewTrainingAid>());
+            SetObject(navigationUI, "flightHUD",
+                FindSceneObject("Flight HUD")?
+                    .GetComponent<FlightHUDController>());
+            SetObject(navigationUI, "holdAssist",
+                aircraft.GetComponent<FlightHoldAssistController>());
+            SetBool(navigationUI, "trajectoryVisualizerEnabled", false);
+            SetInt(navigationUI, "guidanceMode",
+                (int)ApproachGuidanceDisplayMode.TwoDHelpers);
+            SetBool(navigationUI, "sideViewAutoZoomEnabled", true);
+            SetFloat(navigationUI, "farViewDistanceMeters", 4000f);
+            SetFloat(navigationUI, "midViewDistanceMeters", 2000f);
+            SetFloat(navigationUI, "closeViewDistanceMeters", 800f);
+            SetFloat(navigationUI, "flareViewDistanceMeters", 300f);
+            SetFloat(navigationUI, "minHorizontalScaleMeters", 350f);
+            SetFloat(navigationUI, "maxHorizontalScaleMeters", 4200f);
+            SetFloat(navigationUI, "minVerticalScaleMeters", 35f);
+            SetFloat(navigationUI, "maxVerticalScaleMeters", 280f);
+            SetFloat(navigationUI, "zoomSmoothing", 3.5f);
+            SetFloat(navigationUI, "glideSlopeOnPathToleranceMeters", 8f);
+            SetFloat(navigationUI, "glideSlopeHighLowWarningMeters", 20f);
+            SetObject(settings, "navigationUI", navigationUI);
+            SetObject(menu, "navigationUI", navigationUI);
+            SetObject(menu, "flightHUD",
+                FindSceneObject("Flight HUD")?
+                    .GetComponent<FlightHUDController>());
         }
 
         private static void ConfigureFlightTesting(GameObject aircraft)
@@ -1594,6 +1990,8 @@ namespace SimplyFly.Editor
                 aircraft.GetComponent<FlightPhysicsController>());
             SetObject(recorder, "trim",
                 aircraft.GetComponent<AssistedTrimController>());
+            SetObject(recorder, "holdAssist",
+                aircraft.GetComponent<FlightHoldAssistController>());
             SetObject(recorder, "flaps",
                 aircraft.GetComponent<FlapController>());
             SetObject(recorder, "stall",
@@ -1607,6 +2005,9 @@ namespace SimplyFly.Editor
             SetObject(recorder, "locationManager",
                 FindSceneObject("Airport Location System")?
                     .GetComponent<AirportLocationManager>());
+            SetObject(recorder, "wind",
+                FindSceneObject("Airport Location System")?
+                    .GetComponent<WindController>());
 
             SetObject(runner, "input",
                 aircraft.GetComponent<AircraftInput>());
@@ -2315,6 +2716,25 @@ namespace SimplyFly.Editor
             SetObject(controller, "awarenessAssist",
                 aircraft.GetComponent<PilotAwarenessAssist>());
             SetFloat(controller, "defaultYaw", 0f);
+            SetFloat(controller, "chaseDistance", 14.5f);
+            SetFloat(controller, "chaseHeight", 2.2f);
+            SetFloat(controller, "chaseLookAhead", 1f);
+            SetFloat(controller, "minPitchAngle", -10f);
+            SetFloat(controller, "maxPitchAngle", 40f);
+            SetFloat(controller, "defaultPitchAngle", 8f);
+            SetFloat(controller, "cameraSmoothness", 5.5f);
+            SetFloat(controller, "rotationSmoothness", 8f);
+            SetFloat(controller, "mouseSensitivity", 0.18f);
+            SetFloat(controller, "baseLookAheadDistance", 5f);
+            SetFloat(controller, "speedLookAheadMultiplier", 0.08f);
+            SetFloat(controller, "maxLookAheadDistance", 11f);
+            SetFloat(controller, "landingDistance", 11f);
+            SetFloat(controller, "landingHeight", 1.6f);
+            SetFloat(controller, "landingPitchAngle", 3f);
+            SetFloat(controller, "landingLookAhead", 9f);
+            SetFloat(controller, "collisionRadius", 0.45f);
+            SetFloat(controller, "collisionPadding", 0.3f);
+            SetFloat(controller, "minimumGroundClearance", 0.8f);
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 15000f;
             camera.transform.SetPositionAndRotation(aircraft.transform.position + new Vector3(-13f, 6f, 0f),

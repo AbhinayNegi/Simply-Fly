@@ -9,7 +9,8 @@ namespace SimplyFly.GroundOps
     {
         [SerializeField] private FlightLessonSystem lessonSystem;
         [SerializeField] private SideViewTrainingAid pitchCoach;
-        [SerializeField] private Key toggleKey = Key.G;
+        [SerializeField] private NavigationUI navigationUI;
+        [SerializeField] private Key toggleKey = Key.Y;
         [SerializeField] private bool visibleByDefault;
 
         private VisualElement panel;
@@ -29,6 +30,8 @@ namespace SimplyFly.GroundOps
         {
             if (lessonSystem == null)
                 lessonSystem = FindAnyObjectByType<FlightLessonSystem>();
+            if (navigationUI == null)
+                navigationUI = FindAnyObjectByType<NavigationUI>();
             if (pitchCoach == null)
                 pitchCoach = FindAnyObjectByType<SideViewTrainingAid>();
             visible = visibleByDefault;
@@ -52,6 +55,7 @@ namespace SimplyFly.GroundOps
                 ApplyVisibility();
             }
             Refresh();
+            ApplyVisibility();
         }
 
         private void BuildInterface()
@@ -65,8 +69,8 @@ namespace SimplyFly.GroundOps
             panel.pickingMode = PickingMode.Position;
             panel.style.position = Position.Absolute;
             panel.style.left = 20f;
-            panel.style.top = 270f;
-            panel.style.width = 440f;
+            panel.style.top = 18f;
+            panel.style.width = 420f;
             panel.style.minHeight = 390f;
             panel.style.paddingLeft = 18f;
             panel.style.paddingRight = 18f;
@@ -103,6 +107,14 @@ namespace SimplyFly.GroundOps
             lessonButtons.style.marginBottom = 9f;
             panel.Add(lessonButtons);
             int lessonCount = lessonSystem?.Lessons?.Length ?? 0;
+            float lessonButtonWidth = lessonCount <= 0
+                ? 44f
+                : Mathf.Clamp(
+                    (panel.resolvedStyle.width > 0f
+                        ? panel.resolvedStyle.width - 52f
+                        : 368f) / lessonCount - 4f,
+                    36f,
+                    54f);
             for (int i = 0; i < lessonCount; i++)
             {
                 int lessonIndex = i;
@@ -112,7 +124,7 @@ namespace SimplyFly.GroundOps
                     text = (i + 1).ToString()
                 };
                 button.tooltip = lessonSystem.Lessons[i].title;
-                button.style.width = 68f;
+                button.style.width = lessonButtonWidth;
                 button.style.height = 30f;
                 button.style.backgroundColor =
                     new Color(0.05f, 0.18f, 0.22f);
@@ -214,6 +226,8 @@ namespace SimplyFly.GroundOps
                 lastObjective = lessonSystem.CurrentObjectiveIndex;
                 if (lessonSystem.PitchCoachRequested)
                     pitchCoach?.ShowForLesson();
+                if (lessonSystem.ApproachAidLessonRequested)
+                    navigationUI?.ShowApproachHelpersForLesson();
             }
 
             int objectiveCount = lesson.objectives?.Length ?? 0;
@@ -244,7 +258,10 @@ namespace SimplyFly.GroundOps
         {
             if (panel != null)
                 panel.style.display =
-                    visible ? DisplayStyle.Flex : DisplayStyle.None;
+                    visible &&
+                    (navigationUI == null || !navigationUI.MapVisible)
+                        ? DisplayStyle.Flex
+                        : DisplayStyle.None;
         }
 
         public void SetVisible(bool value)

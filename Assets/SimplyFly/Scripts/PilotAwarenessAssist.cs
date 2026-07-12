@@ -138,7 +138,10 @@ namespace SimplyFly.GroundOps
                 return;
             }
 
-            float speed = flightPhysics.AirspeedKnots;
+            bool groundMode = flightPhysics.IsPhysicallyGrounded;
+            float speed = groundMode
+                ? flightPhysics.HorizontalGroundSpeed * 1.943844f
+                : flightPhysics.AirspeedKnots;
             if (!speedInitialized)
             {
                 previousAirspeed = speed;
@@ -158,6 +161,14 @@ namespace SimplyFly.GroundOps
                 accelerationCameraStrength * motionCuesStrength;
 
             float stallSpeed = stall == null ? 42f : stall.EffectiveStallSpeed;
+            if (groundMode && speed < 1f)
+            {
+                EnergyCue = flightPhysics.AirspeedKnots >= 1f
+                    ? "WIND AIRFLOW"
+                    : "PARKED";
+                LongitudinalCameraCue = 0f;
+                return;
+            }
             if (speed <= stallSpeed + lowEnergySpeedMargin &&
                 AirspeedTrend < -speedTrendDeadband)
             {
@@ -180,7 +191,7 @@ namespace SimplyFly.GroundOps
                 ? 0f
                 : Mathf.Max(
                     Mathf.Abs(input.ElevatorInput),
-                    Mathf.Abs(input.SteeringInput));
+                    Mathf.Abs(input.AileronInput));
             if (controlInput < 0.15f)
             {
                 ControlPressureCue = trim != null &&

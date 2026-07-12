@@ -20,6 +20,8 @@ namespace SimplyFly.GroundOps
         public void UpdateView(AssistedTrimController trim)
         {
             if (trim == null) return;
+            gameObject.SetActive(trim.TrimEnabled);
+            if (!trim.TrimEnabled) return;
 
             if (statusLabel != null)
             {

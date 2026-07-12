@@ -87,7 +87,8 @@ namespace SimplyFly.GroundOps
         private void FixedUpdate()
         {
             if (flightPhysics == null ||
-                flightPhysics.State != FlightPhysicsController.AircraftState.Airborne)
+                flightPhysics.State != FlightPhysicsController.AircraftState.Airborne ||
+                flightPhysics.IsPhysicallyGrounded)
             {
                 State = StallState.Normal;
                 RecoveryProgress = 1f;

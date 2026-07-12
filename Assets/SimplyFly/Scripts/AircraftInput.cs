@@ -5,15 +5,17 @@ namespace SimplyFly.GroundOps
 {
     public sealed class AircraftInput : MonoBehaviour
     {
+        [SerializeField] private MouseYokeController mouseYoke;
         [Header("Bindings")]
         [SerializeField] private Key startEngineKey = Key.E;
         [SerializeField] private Key brakeKey = Key.Space;
-        [SerializeField] private Key resetCameraKey = Key.C;
+        [SerializeField] private Key resetCameraKey = Key.R;
         [SerializeField] private Key extendFlapsKey = Key.F;
         [SerializeField] private Key retractFlapsKey = Key.V;
 
         public float ThrottleInput { get; private set; }
         public float SteeringInput { get; private set; }
+        public float AileronInput { get; private set; }
         public float RudderInput { get; private set; }
         public float ElevatorInput { get; private set; }
         public bool BrakeHeld { get; private set; }
@@ -34,6 +36,8 @@ namespace SimplyFly.GroundOps
 
         private void Update()
         {
+            if (mouseYoke == null)
+                mouseYoke = GetComponent<MouseYokeController>();
             Keyboard keyboard = Keyboard.current;
             Mouse mouse = Mouse.current;
 
@@ -47,15 +51,28 @@ namespace SimplyFly.GroundOps
             ThrottleInput = ReadAxis(
                 keyboard.leftShiftKey.isPressed || keyboard.pageUpKey.isPressed,
                 keyboard.leftCtrlKey.isPressed || keyboard.pageDownKey.isPressed);
-            SteeringInput = ReadAxis(
-                keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed,
-                keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed);
             RudderInput = ReadAxis(
-                keyboard.lKey.isPressed,
-                keyboard.jKey.isPressed);
+                keyboard.dKey.isPressed,
+                keyboard.aKey.isPressed);
+            // Ground steering follows the rudder/nose-wheel keys. Airborne
+            // bank is intentionally separate on the arrow keys.
+            SteeringInput = RudderInput;
+            float keyboardAileron = ReadAxis(
+                keyboard.rightArrowKey.isPressed,
+                keyboard.leftArrowKey.isPressed);
+            AileronInput = Mathf.Clamp(
+                keyboardAileron +
+                (mouseYoke != null && mouseYoke.IsControlling
+                    ? mouseYoke.RollInput
+                    : 0f),
+                -1f,
+                1f);
             ElevatorInput = ReadAxis(
                 keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed,
                 keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed);
+            if (mouseYoke != null && mouseYoke.IsControlling)
+                ElevatorInput = Mathf.Clamp(
+                    ElevatorInput + mouseYoke.PitchInput, -1f, 1f);
             BrakeHeld = keyboard[brakeKey].isPressed;
             StartEnginePressed = keyboard[startEngineKey].wasPressedThisFrame;
             ResetCameraPressed = keyboard[resetCameraKey].wasPressedThisFrame;
@@ -82,6 +99,7 @@ namespace SimplyFly.GroundOps
         {
             ThrottleInput = 0f;
             SteeringInput = 0f;
+            AileronInput = 0f;
             RudderInput = 0f;
             ElevatorInput = 0f;
             BrakeHeld = false;
@@ -124,6 +142,7 @@ namespace SimplyFly.GroundOps
             if (!TestOverrideActive) return;
             ThrottleInput = testThrottleInput;
             SteeringInput = testSteeringInput;
+            AileronInput = testSteeringInput;
             RudderInput = testRudderInput;
             ElevatorInput = testElevatorInput;
             BrakeHeld = testBrakeHeld;

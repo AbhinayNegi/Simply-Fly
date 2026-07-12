@@ -17,6 +17,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private StallController stall;
         [SerializeField] private FlapController flaps;
         [SerializeField] private AssistedTrimController trim;
+        [SerializeField] private FlightHoldAssistController holdAssist;
         [SerializeField] private RudderController rudder;
         [SerializeField] private PropellerController propeller;
         [SerializeField] private CameraController followCamera;
@@ -25,6 +26,8 @@ namespace SimplyFly.GroundOps
         [Header("Reset")]
         [SerializeField] private Key resetKey = Key.Backspace;
         [SerializeField] private bool stopEngineOnReset = true;
+        [Tooltip("Small clearance used so runway spawns settle onto their wheels instead of intersecting the runway.")]
+        [Min(0f)] [SerializeField] private float runwaySettleHeight = 0.08f;
         [Header("Development spawn points")]
         [SerializeField] private Vector3 airborneTestPosition = new Vector3(-400f, 300f, -900f);
         [SerializeField] private Vector3 airborneTestEuler = new Vector3(0f, 45f, 0f);
@@ -53,6 +56,8 @@ namespace SimplyFly.GroundOps
             if (stall == null) stall = GetComponent<StallController>();
             if (flaps == null) flaps = GetComponent<FlapController>();
             if (trim == null) trim = GetComponent<AssistedTrimController>();
+            if (holdAssist == null)
+                holdAssist = GetComponent<FlightHoldAssistController>();
             if (rudder == null) rudder = GetComponent<RudderController>();
             if (propeller == null) propeller = GetComponent<PropellerController>();
             if (followCamera == null) followCamera = FindAnyObjectByType<CameraController>();
@@ -130,7 +135,10 @@ namespace SimplyFly.GroundOps
             spawnPosition = position;
             spawnRotation = rotation;
             ResetSystems(stopEngineOnReset);
-            PlaceAircraft(position, rotation, Vector3.zero, false, 0f);
+            PlaceAircraft(
+                position + Vector3.up * runwaySettleHeight,
+                rotation, Vector3.zero, false, 0f);
+            brakes?.SetParkingBrake(true);
         }
 
         public void SpawnAirborneAt(
@@ -160,6 +168,7 @@ namespace SimplyFly.GroundOps
             if (stall != null) stall.ResetStall();
             if (flaps != null) flaps.ResetFlaps();
             if (trim != null) trim.ResetTrim();
+            if (holdAssist != null) holdAssist.ResetAssists();
             if (rudder != null) rudder.ResetRudder();
             if (propeller != null) propeller.ResetPropeller();
         }
@@ -179,14 +188,17 @@ namespace SimplyFly.GroundOps
                 landing?.ResetLanding(true);
             }
 
-            body.linearVelocity = velocity;
+            body.Sleep();
+            body.linearVelocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
             body.position = position;
             body.rotation = rotation;
-            body.WakeUp();
 
             transform.SetPositionAndRotation(position, rotation);
             Physics.SyncTransforms();
+            body.linearVelocity = velocity;
+            body.angularVelocity = Vector3.zero;
+            body.WakeUp();
             if (followCamera != null) followCamera.SnapToTarget();
         }
     }

@@ -15,10 +15,14 @@ namespace SimplyFly.GroundOps
         [SerializeField] private StallController stall;
         [SerializeField] private FlapController flaps;
         [SerializeField] private AssistedTrimController trim;
+        [SerializeField] private FlightHoldAssistController holdAssist;
         [SerializeField] private AircraftAudioController aircraftAudio;
         [SerializeField] private RudderController rudder;
         [SerializeField] private AirportLocationManager locationManager;
         [SerializeField] private AircraftResetController resetController;
+        [SerializeField] private NavigationManager navigation;
+        [SerializeField] private WindController wind;
+        [SerializeField] private WeatherManager weather;
         [SerializeField] private Vector2 panelPosition = new Vector2(18f, 18f);
         [SerializeField] private int fontSize = 16;
         [Header("Debug visibility")]
@@ -49,6 +53,8 @@ namespace SimplyFly.GroundOps
                     normal = { textColor = Color.white }
                 };
             }
+            if (wind == null) wind = FindAnyObjectByType<WindController>();
+            if (weather == null) weather = FindAnyObjectByType<WeatherManager>();
 
             float panelTop = panelPosition.y + 44f;
             if (GUI.Button(
@@ -116,24 +122,76 @@ namespace SimplyFly.GroundOps
                 $"Flap Drag      {(flaps == null ? 0f : flaps.DragBonus):0.00}\n" +
                 $"Stall Reduction {(flaps == null ? 0f : flaps.StallSpeedReduction):0.0} kt\n" +
                 $"Flap Overspeed {(flaps != null && flaps.SpeedWarning ? "YES" : "No")}\n" +
+                $"Wind           {(wind == null ? "CALM" : wind.WindDescription)}\n" +
+                $"Headwind       {(wind == null ? 0f : wind.HeadwindKnots):+0.0;-0.0;0.0} kt\n" +
+                $"Crosswind      {(wind == null ? 0f : wind.CrosswindKnots):+0.0;-0.0;0.0} kt\n" +
+                $"Weather        {(weather == null ? "--" : weather.PresetDisplayName)}\n" +
+                $"Visibility     {(weather == null ? 0f : weather.VisibilityMeters):0} m\n" +
+                $"Cloud / Rain   {(weather == null ? 0f : weather.CloudAmount * 100f):0}% / {(weather == null ? 0f : weather.RainIntensity * 100f):0}%\n" +
                 $"Grounded       {(flightPhysics != null && flightPhysics.IsPhysicallyGrounded ? "Yes" : "No")}\n" +
                 $"Vertical Speed {(flightPhysics == null ? 0f : flightPhysics.VerticalSpeed):+0.00;-0.00;0.00} m/s\n" +
                 $"Drag           {(flightPhysics == null ? 0f : flightPhysics.DragForce):0} N\n" +
                 $"Brakes         {(brakes != null && brakes.IsBraking ? $"{brakes.BrakeAmount * 100f:0}%" : "Released")}\n" +
                 $"Steering       {(steering == null ? 0f : steering.SteeringAngle):+0.0;-0.0;0.0} deg\n\n" +
-                "E Start | Shift/Ctrl Throttle | A/D Steer/Roll\n" +
+                "FLIGHT ASSISTS\n" +
+                $"Trim Enabled   {(trim != null && trim.TrimEnabled ? "Yes" : "NO")}\n" +
+                $"Active Assist  {(holdAssist == null ? "None" : holdAssist.ActiveMode.ToString())}\n" +
+                $"Target Pitch   {(holdAssist == null ? 0f : holdAssist.TargetPitch):+0.0;-0.0;0.0} deg\n" +
+                $"Current Pitch  {(flightPhysics == null ? 0f : flightPhysics.PitchAngle):+0.0;-0.0;0.0} deg\n" +
+                $"Pitch Error    {(holdAssist == null ? 0f : holdAssist.PitchError):+0.0;-0.0;0.0} deg\n" +
+                $"Target VS      {(holdAssist == null ? 0f : holdAssist.TargetVerticalSpeed):+0.0;-0.0;0.0} m/s\n" +
+                $"Captured VS    {(holdAssist == null ? 0f : holdAssist.CapturedVerticalSpeed):+0.0;-0.0;0.0} m/s" +
+                $"{(holdAssist != null && holdAssist.VerticalSpeedTargetClamped ? " (LIMITED)" : string.Empty)}\n" +
+                $"Current VS     {(flightPhysics == null ? 0f : flightPhysics.VerticalSpeed):+0.0;-0.0;0.0} m/s\n" +
+                $"VS Error       {(holdAssist == null ? 0f : holdAssist.VerticalSpeedError):+0.0;-0.0;0.0} m/s\n" +
+                $"Assist Elevator {(holdAssist == null ? 0f : holdAssist.ElevatorCommand):+0.00;-0.00;0.00}\n" +
+                $"Manual Pitch   {(flightPhysics == null ? 0f : flightPhysics.ElevatorInput):+0.00;-0.00;0.00}\n" +
+                $"Disengage      {(holdAssist == null ? "--" : holdAssist.DisengageReason)}\n\n" +
+                "NAVIGATION\n" +
+                $"Route          {(navigation == null ? "--" : navigation.RouteName)}\n" +
+                $"Phase          {(navigation == null ? "--" : navigation.Phase.ToString())}\n" +
+                $"Waypoint       {(navigation?.CurrentWaypoint?.name ?? "--")} " +
+                $"#{(navigation == null ? 0 : navigation.WaypointIndex + 1)}\n" +
+                $"Capture radius {(navigation?.CurrentWaypoint?.captureRadius ?? 0f):0} m\n" +
+                $"Bearing        {(navigation == null ? 0f : navigation.DesiredHeading):000} deg\n" +
+                $"Heading error  {(navigation == null ? 0f : navigation.HeadingError):+0.0;-0.0;0.0} deg\n" +
+                $"Waypoint dist  {(navigation == null ? 0f : navigation.DistanceToWaypoint):0} m\n" +
+                $"Final active   {(navigation != null && navigation.FinalApproachActive ? "Yes" : "No")}\n" +
+                $"Runway         {(navigation == null ? "--" : navigation.SelectedArrivalRunway)}\n" +
+                $"Approach clear {(navigation == null || navigation.ApproachClear ? "Yes" : "BLOCKED")}\n" +
+                $"Blocked reason {(navigation == null ? "--" : navigation.ApproachBlockedReason)}\n" +
+                $"Blocking object {(navigation == null ? "--" : navigation.BlockingObjectName)}\n" +
+                $"Block distance {(navigation == null ? 0f : navigation.BlockingObjectDistanceFromThreshold):0} m\n" +
+                $"Terrain min    {(navigation == null ? 0f : navigation.TerrainClearanceMin):0} m\n" +
+                $"Final fix      {(navigation == null ? 0f : navigation.FinalApproachFixDistance):0} m\n" +
+                $"Lateral offset {(navigation == null ? 0f : navigation.LateralOffset):+0;-0;0} m\n" +
+                $"Glide target   {(navigation == null ? 0f : navigation.TargetGlideSlopeAltitude):0} m\n" +
+                $"Glide error    {(navigation == null ? 0f : navigation.GlideSlopeAltitudeError):+0;-0;0} m\n\n" +
+                "VERTICAL NAVIGATION\n" +
+                $"Vertical phase {(navigation == null ? "--" : navigation.VerticalNavigationPhase)}\n" +
+                $"Target altitude {(navigation == null ? 0f : navigation.CurrentTargetAltitude):0} m\n" +
+                $"Altitude error {(navigation == null ? 0f : navigation.AltitudeError):+0;-0;0} m\n" +
+                $"Suggested VS   {(navigation == null ? 0f : navigation.SuggestedVerticalSpeed):+0.0;-0.0;0.0} m/s\n" +
+                $"Profile target {(navigation == null ? 0f : navigation.RouteProfileTargetAltitude):0} m\n" +
+                $"Terrain clear  {(navigation == null ? 0f : navigation.TerrainClearanceBelowAircraft):0} m\n" +
+                $"Segment clear  {(navigation == null ? 0f : navigation.CurrentSegmentMinimumTerrainClearance):0} m\n" +
+                $"Threshold cross {(navigation == null ? 0f : navigation.ThresholdCrossingHeight):0} m\n" +
+                $"Touchdown elev {(navigation == null ? 0f : navigation.TouchdownTargetPoint.y):0} m\n\n" +
+                "E Start | Shift/Ctrl Throttle | A/D Rudder/Steer\n" +
+                "Left/Right Arrow Roll | U Mouse Yoke\n" +
                 "S/Down Nose Up | W/Up Nose Down | Space Brake\n" +
                 "F Extend Flaps | V Retract Flaps\n" +
-                "T Capture Trim | Shift+T Reset Trim\n" +
-                "RMB Orbit | Z/X Quick Look | C Recenter\n" +
-                "J/L Rudder | I Side View Aid | K Force Vectors\n" +
+                "P Pitch Hold | Alt+P VS Hold | +/- or Wheel Adjust VS\n" +
+                "RMB Orbit | Z/X Quick Look | C Camera Mode | R Recenter\n" +
+                "I Side View Aid | K Force Vectors\n" +
                 "B Speed Sensation HUD\n" +
-                "G Flight School | O Airport Selector\n" +
-                "F5 Test UI | F6/F7 Scenario | F8 Record | F9 Run\n" +
+                "L In-flight Flight Planner\n" +
+                "Y Flight School | O Airport Selector\n" +
+                "F5 Test UI | F6/F7 Scenario | F8 Record | F12 Run\n" +
                 "F1 Runway | F2 Airborne | F3 Final Approach";
 
             if (showMainDebug)
-                GUI.Box(new Rect(panelPosition.x, panelTop, 410f, 825f), text, style);
+                GUI.Box(new Rect(panelPosition.x, panelTop, 410f, 1010f), text, style);
 
             string airborneText =
                 "AIRBORNE ROLL / TURN DEBUG\n\n" +

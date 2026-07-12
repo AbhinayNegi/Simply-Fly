@@ -17,6 +17,8 @@ namespace SimplyFly.GroundOps
         [SerializeField] private StallController stall;
         [SerializeField] private FlapController flaps;
         [SerializeField] private ThrottleController throttle;
+        [Header("Availability")]
+        [SerializeField] private bool trimEnabled;
 
         [Header("Trim response")]
         [Tooltip("Fraction of the sustained elevator requirement captured per tap.")]
@@ -40,10 +42,13 @@ namespace SimplyFly.GroundOps
         [Min(0.5f)] [SerializeField] private float trimCaptureMaxVerticalSpeed = 8f;
 
         public TrimStatus Status { get; private set; } = TrimStatus.Neutral;
-        public bool TrimActive => Mathf.Abs(TargetTrimOffset) > trimDeadband;
+        public bool TrimEnabled => trimEnabled;
+        public bool TrimActive =>
+            trimEnabled && Mathf.Abs(TargetTrimOffset) > trimDeadband;
         public float CurrentTrimOffset { get; private set; }
         public float TargetTrimOffset { get; private set; }
-        public float PitchCommandOffset => CurrentTrimOffset * trimStrength;
+        public float PitchCommandOffset =>
+            trimEnabled ? CurrentTrimOffset * trimStrength : 0f;
         public float SustainedElevatorPressure { get; private set; }
         public string Recommendation { get; private set; } = "TRIMMED";
         public string RejectionReason { get; private set; } = string.Empty;
@@ -72,6 +77,12 @@ namespace SimplyFly.GroundOps
 
         private void Update()
         {
+            if (!trimEnabled)
+            {
+                if (CurrentTrimOffset != 0f || TargetTrimOffset != 0f)
+                    ResetTrim();
+                return;
+            }
             if (input != null && input.TrimResetPressed)
             {
                 TargetTrimOffset = 0f;
@@ -264,6 +275,12 @@ namespace SimplyFly.GroundOps
             RejectionReason = string.Empty;
             TransientMessage = string.Empty;
             Status = TrimStatus.Neutral;
+        }
+
+        public void SetTrimEnabled(bool enabled)
+        {
+            trimEnabled = enabled;
+            if (!enabled) ResetTrim();
         }
     }
 }

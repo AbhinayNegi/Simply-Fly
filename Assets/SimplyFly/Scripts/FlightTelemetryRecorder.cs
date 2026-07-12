@@ -16,12 +16,17 @@ namespace SimplyFly.GroundOps
         [SerializeField] private BrakeController brakes;
         [SerializeField] private FlightPhysicsController flightPhysics;
         [SerializeField] private AssistedTrimController trim;
+        [SerializeField] private FlightHoldAssistController holdAssist;
         [SerializeField] private FlapController flaps;
         [SerializeField] private StallController stall;
         [SerializeField] private ApproachGuidanceController approach;
         [SerializeField] private LandingController landing;
         [SerializeField] private RudderController rudder;
         [SerializeField] private AirportLocationManager locationManager;
+        [SerializeField] private NavigationManager navigation;
+        [SerializeField] private NavigationUI navigationUI;
+        [SerializeField] private ApproachTrajectoryVisualizer trajectoryVisualizer;
+        [SerializeField] private WindController wind;
 
         [Header("Recording")]
         [Min(0.02f)] [SerializeField] private float logInterval = 0.25f;
@@ -216,7 +221,7 @@ namespace SimplyFly.GroundOps
                     ? 0f
                     : groundMovement.RollingResistanceForce,
                 pitchInput = input == null ? 0f : input.ElevatorInput,
-                rollInput = input == null ? 0f : input.SteeringInput,
+                rollInput = input == null ? 0f : input.AileronInput,
                 steeringInput = input == null ? 0f : input.SteeringInput,
                 rudderInput = rudder == null
                     ? input == null ? 0f : input.RudderInput
@@ -228,6 +233,32 @@ namespace SimplyFly.GroundOps
                 trimActive = trim != null && trim.TrimActive,
                 trimValue =
                     trim == null ? 0f : trim.CurrentTrimOffset,
+                trimEnabled = trim != null && trim.TrimEnabled,
+                pitchHoldEnabled =
+                    holdAssist != null && holdAssist.PitchHoldEnabled,
+                pitchHoldActive =
+                    holdAssist != null && holdAssist.PitchHoldActive,
+                pitchHoldTargetPitch =
+                    holdAssist == null ? 0f : holdAssist.TargetPitch,
+                pitchHoldElevatorCommand =
+                    holdAssist == null ? 0f :
+                        holdAssist.PitchHoldElevatorCommand,
+                vsHoldEnabled =
+                    holdAssist != null && holdAssist.VerticalSpeedHoldEnabled,
+                vsHoldActive =
+                    holdAssist != null && holdAssist.VerticalSpeedHoldActive,
+                vsHoldTargetVerticalSpeed =
+                    holdAssist == null ? 0f :
+                        holdAssist.TargetVerticalSpeed,
+                vsHoldElevatorCommand =
+                    holdAssist == null ? 0f :
+                        holdAssist.VerticalSpeedHoldElevatorCommand,
+                activeAssistMode =
+                    holdAssist == null ? "None" :
+                        holdAssist.ActiveMode.ToString(),
+                assistDisengageReason =
+                    holdAssist == null ? string.Empty :
+                        holdAssist.DisengageReason,
                 flapAngle =
                     flaps == null ? 0f : flaps.ActualAngle,
                 stallState =
@@ -277,7 +308,168 @@ namespace SimplyFly.GroundOps
                 noseFirstWarning =
                     landing != null && landing.NoseWheelFirstWarning,
                 bounceVelocity =
-                    landing == null ? 0f : landing.BounceVelocity
+                    landing == null ? 0f : landing.BounceVelocity,
+                navigationActive =
+                    navigation != null && navigation.IsActive,
+                navigationPhase =
+                    navigation == null ? "Inactive" : navigation.Phase.ToString(),
+                departureAirport =
+                    navigation?.DepartureAirport?.airportName ?? string.Empty,
+                arrivalAirport =
+                    navigation?.ArrivalAirport?.airportName ?? string.Empty,
+                nextWaypoint =
+                    navigation?.CurrentWaypoint?.name ?? string.Empty,
+                navigationDistance =
+                    navigation == null ? 0f : navigation.DistanceToWaypoint,
+                desiredHeading =
+                    navigation == null ? 0f : navigation.DesiredHeading,
+                navigationHeadingError =
+                    navigation == null ? 0f : navigation.HeadingError,
+                routeProgressPercent =
+                    navigation == null ? 0f : navigation.RouteProgress * 100f,
+                navigationRunwayHeading =
+                    navigation == null ? 0f : navigation.RunwayHeading,
+                navigationThresholdDistance =
+                    navigation == null ? 0f : navigation.DistanceToThreshold,
+                navigationLateralOffset =
+                    navigation == null ? 0f : navigation.LateralOffset,
+                navigationAlignmentError =
+                    navigation == null ? 0f : navigation.AlignmentError,
+                targetGlideSlopeAngle =
+                    navigation == null ? 0f : navigation.GlideSlopeAngle,
+                targetGlideSlopeAltitude =
+                    navigation == null ? 0f :
+                        navigation.TargetGlideSlopeAltitude,
+                glideSlopeAltitudeError =
+                    navigation == null ? 0f :
+                        navigation.GlideSlopeAltitudeError,
+                approachHelperActive =
+                    navigationUI != null && navigationUI.ApproachHelperActive,
+                sideViewHelperStatus =
+                    navigationUI?.SideViewStatus ?? "HIDDEN",
+                topDownHelperStatus =
+                    navigationUI?.TopDownStatus ?? "HIDDEN",
+                approachValidationEnabled =
+                    navigation != null &&
+                    navigation.ApproachValidationEnabled,
+                selectedArrivalRunway =
+                    navigation?.SelectedArrivalRunway ?? string.Empty,
+                approachClear =
+                    navigation == null || navigation.ApproachClear,
+                approachBlockedReason =
+                    navigation?.ApproachBlockedReason ?? string.Empty,
+                blockingObjectName =
+                    navigation?.BlockingObjectName ?? string.Empty,
+                blockingObjectDistanceFromThreshold =
+                    navigation == null ? 0f :
+                        navigation.BlockingObjectDistanceFromThreshold,
+                terrainClearanceMin =
+                    navigation == null ? 0f :
+                        navigation.TerrainClearanceMin,
+                approachCorridorWidth =
+                    navigation == null ? 0f :
+                        navigation.SelectedApproachCorridorWidth,
+                finalApproachFixDistance =
+                    navigation == null ? 0f :
+                        navigation.FinalApproachFixDistance,
+                selectedGlideSlopeDegrees =
+                    navigation == null ? 0f :
+                        navigation.SelectedGlideSlopeDegrees,
+                touchdownTargetDistanceFromThreshold =
+                    navigation == null ? 0f :
+                        navigation.TouchdownTargetDistanceFromThreshold,
+                distanceToTouchdownTarget =
+                    navigation == null ? 0f :
+                        navigation.DistanceToTouchdownTarget,
+                thresholdCrossingHeight =
+                    navigation == null ? 0f :
+                        navigation.ThresholdCrossingHeight,
+                sideViewZoomLevel =
+                    navigationUI == null ? 1f :
+                        navigationUI.SideViewZoomLevel,
+                sideViewMode =
+                    navigationUI?.SideViewMode ?? "HIDDEN",
+                currentTargetAltitude =
+                    navigation == null ? 0f :
+                        navigation.CurrentTargetAltitude,
+                altitudeReferenceType =
+                    navigation == null ? "MSL" :
+                        navigation.CurrentAltitudeReference.ToString(),
+                currentAltitudeMSL =
+                    navigation == null ? body.position.y :
+                        navigation.CurrentAltitude,
+                currentAltitudeAGL =
+                    navigation == null ? 0f :
+                        navigation.CurrentAltitudeAGL,
+                navigationAltitudeError =
+                    navigation == null ? 0f :
+                        navigation.AltitudeError,
+                verticalNavigationPhase =
+                    navigation?.VerticalNavigationPhase ?? "INACTIVE",
+                suggestedVerticalSpeed =
+                    navigation == null ? 0f :
+                        navigation.SuggestedVerticalSpeed,
+                routeProfileDistance =
+                    navigation == null ? 0f :
+                        navigation.RouteProfileDistance,
+                routeProfileTargetAltitude =
+                    navigation == null ? 0f :
+                        navigation.RouteProfileTargetAltitude,
+                terrainClearanceBelowAircraft =
+                    navigation == null ? 0f :
+                        navigation.TerrainClearanceBelowAircraft,
+                minimumTerrainClearanceCurrentSegment =
+                    navigation == null ? 0f :
+                        navigation.CurrentSegmentMinimumTerrainClearance,
+                approachGuidanceMode =
+                    navigationUI == null
+                        ? "Unknown"
+                        : navigationUI.GuidanceMode.ToString(),
+                trajectoryVisualizerActive =
+                    trajectoryVisualizer != null && trajectoryVisualizer.Active,
+                predictedImpactValid =
+                    trajectoryVisualizer != null &&
+                    trajectoryVisualizer.PredictedImpactValid,
+                predictedImpactWorldPosition =
+                    trajectoryVisualizer == null
+                        ? Vector3.zero
+                        : trajectoryVisualizer.PredictedImpactWorldPosition,
+                predictedImpactDistanceToThreshold =
+                    trajectoryVisualizer == null
+                        ? 0f
+                        : trajectoryVisualizer.PredictedImpactDistanceToThreshold,
+                predictedImpactDistanceFromCenterline =
+                    trajectoryVisualizer == null
+                        ? 0f
+                        : trajectoryVisualizer.PredictedImpactDistanceFromCenterline,
+                predictedImpactStatus =
+                    trajectoryVisualizer == null
+                        ? "Unknown"
+                        : trajectoryVisualizer.Status.ToString(),
+                predictionTimeToImpact =
+                    trajectoryVisualizer == null
+                        ? 0f
+                        : trajectoryVisualizer.PredictionTimeToImpact,
+                trajectoryPredictionSeconds =
+                    trajectoryVisualizer == null
+                        ? 0f
+                        : trajectoryVisualizer.PredictionSeconds,
+                currentFlightPathAngle =
+                    trajectoryVisualizer == null
+                        ? flightPhysics == null ? 0f : flightPhysics.FlightPathAngle
+                        : trajectoryVisualizer.CurrentFlightPathAngle,
+                currentGroundTrack =
+                    trajectoryVisualizer == null
+                        ? 0f
+                        : trajectoryVisualizer.CurrentGroundTrack,
+                currentVerticalSpeed =
+                    trajectoryVisualizer == null
+                        ? flightPhysics == null ? body.linearVelocity.y : flightPhysics.VerticalSpeed
+                        : trajectoryVisualizer.CurrentVerticalSpeed,
+                windFromHeading = wind == null ? 0f : wind.WindFromHeading,
+                windSpeedKnots = wind == null ? 0f : wind.WindSpeedKnots,
+                headwindKnots = wind == null ? 0f : wind.HeadwindKnots,
+                crosswindKnots = wind == null ? 0f : wind.CrosswindKnots
             };
             samples.Add(sample);
         }
@@ -353,6 +545,8 @@ namespace SimplyFly.GroundOps
             if (flightPhysics == null)
                 flightPhysics = GetComponent<FlightPhysicsController>();
             if (trim == null) trim = GetComponent<AssistedTrimController>();
+            if (holdAssist == null)
+                holdAssist = GetComponent<FlightHoldAssistController>();
             if (flaps == null) flaps = GetComponent<FlapController>();
             if (stall == null) stall = GetComponent<StallController>();
             if (approach == null)
@@ -361,6 +555,16 @@ namespace SimplyFly.GroundOps
             if (locationManager == null)
                 locationManager = FindAnyObjectByType<AirportLocationManager>();
             if (rudder == null) rudder = GetComponent<RudderController>();
+            if (navigation == null)
+                navigation = FindAnyObjectByType<NavigationManager>();
+            if (navigationUI == null)
+                navigationUI = FindAnyObjectByType<NavigationUI>();
+            if (trajectoryVisualizer == null)
+                trajectoryVisualizer =
+                    GetComponent<ApproachTrajectoryVisualizer>() ??
+                    FindAnyObjectByType<ApproachTrajectoryVisualizer>();
+            if (wind == null)
+                wind = FindAnyObjectByType<WindController>();
         }
     }
 }

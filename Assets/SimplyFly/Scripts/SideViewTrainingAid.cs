@@ -49,6 +49,7 @@ namespace SimplyFly.GroundOps
         private bool visible;
         private bool advancedVisible;
         private bool settingEnabled = true;
+        private bool navigationOverlaySuppressed;
         private float previousAirspeed;
         private float smoothedSpeedTrend;
         private bool speedInitialized;
@@ -86,7 +87,7 @@ namespace SimplyFly.GroundOps
 
         private void UpdateTrends()
         {
-            float airspeed = flightPhysics.AirspeedKnots;
+            float airspeed = GetMovementCueSpeed();
             if (!speedInitialized)
             {
                 previousAirspeed = airspeed;
@@ -162,7 +163,7 @@ namespace SimplyFly.GroundOps
             if (motionLabel != null)
             {
                 motionLabel.text =
-                    $"{flightPhysics.AirspeedKnots:0} KT  {speedTrend}\n" +
+                    $"{GetMovementCueSpeed():0} KT  {speedTrend}\n" +
                     $"{flightPhysics.VerticalSpeed:+0.0;-0.0;0.0} m/s  " +
                     verticalTrend;
             }
@@ -191,6 +192,16 @@ namespace SimplyFly.GroundOps
                 modeLabel.text = advancedVisible
                     ? "I HIDE   K SIMPLE VIEW"
                     : "I HIDE   K FORCE VECTORS";
+        }
+
+        private float GetMovementCueSpeed()
+        {
+            if (flightPhysics == null) return 0f;
+            float groundSpeed =
+                flightPhysics.HorizontalGroundSpeed * 1.943844f;
+            return flightPhysics.IsPhysicallyGrounded
+                ? groundSpeed
+                : flightPhysics.AirspeedKnots;
         }
 
         private string BuildGuidance(float pitch, float flightPath, float aoa)
@@ -254,14 +265,17 @@ namespace SimplyFly.GroundOps
         {
             if (panelGroup != null)
             {
-                panelGroup.alpha = visible && settingEnabled ? 1f : 0f;
+                panelGroup.alpha =
+                    visible && settingEnabled && !navigationOverlaySuppressed
+                        ? 1f : 0f;
                 panelGroup.interactable = false;
                 panelGroup.blocksRaycasts = false;
             }
             if (advancedGroup != null)
             {
                 advancedGroup.alpha =
-                    visible && settingEnabled && advancedVisible ? 1f : 0f;
+                    visible && settingEnabled && advancedVisible &&
+                    !navigationOverlaySuppressed ? 1f : 0f;
                 advancedGroup.interactable = false;
                 advancedGroup.blocksRaycasts = false;
             }
@@ -276,6 +290,12 @@ namespace SimplyFly.GroundOps
         public void SetSettingEnabled(bool enabled)
         {
             settingEnabled = enabled;
+            ApplyVisibility();
+        }
+
+        public void SetNavigationOverlaySuppressed(bool suppressed)
+        {
+            navigationOverlaySuppressed = suppressed;
             ApplyVisibility();
         }
     }
