@@ -24,6 +24,7 @@ namespace SimplyFly.GroundOps
         [Header("HUD views")]
         [SerializeField] private CanvasGroup hudGroup;
         [SerializeField] private FlightHUDInstrument airspeedInstrument;
+        [SerializeField] private AirspeedTapeHUD airspeedTape;
         [SerializeField] private FlightHUDInstrument altitudeInstrument;
         [SerializeField] private FlightHUDInstrument verticalSpeedInstrument;
         [SerializeField] private FlightHUDInstrument headingInstrument;
@@ -59,11 +60,21 @@ namespace SimplyFly.GroundOps
         private void Awake()
         {
             if (hudGroup == null) hudGroup = GetComponent<CanvasGroup>();
+            EnsureAirspeedTape();
             if (wind == null) wind = FindAnyObjectByType<WindController>();
             if (slipSkidView != null)
                 slipSkidView.gameObject.SetActive(false);
             ApplyHUDVisibility();
             if (landingFeedbackGroup != null) landingFeedbackGroup.alpha = 0f;
+        }
+
+        private void EnsureAirspeedTape()
+        {
+            if (airspeedTape == null && airspeedInstrument != null)
+                airspeedTape = airspeedInstrument.GetComponent<AirspeedTapeHUD>();
+            if (airspeedTape == null && airspeedInstrument != null)
+                airspeedTape = airspeedInstrument.gameObject.AddComponent<AirspeedTapeHUD>();
+            airspeedTape?.Bind(flightPhysics);
         }
 
         private void Update()
