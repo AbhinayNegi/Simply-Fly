@@ -65,17 +65,20 @@ namespace SimplyFly.GroundOps
             root.Clear();
             root.pickingMode = PickingMode.Ignore;
 
-            panel = new VisualElement { name = "flight-school-panel" };
+            panel = new ScrollView(ScrollViewMode.Vertical)
+            {
+                name = "flight-school-panel"
+            };
             panel.pickingMode = PickingMode.Position;
             panel.style.position = Position.Absolute;
             panel.style.left = 20f;
             panel.style.top = 18f;
-            panel.style.width = 420f;
-            panel.style.minHeight = 390f;
-            panel.style.paddingLeft = 18f;
-            panel.style.paddingRight = 18f;
-            panel.style.paddingTop = 14f;
-            panel.style.paddingBottom = 14f;
+            panel.style.width = 380f;
+            panel.style.height = 205f;
+            panel.style.paddingLeft = 14f;
+            panel.style.paddingRight = 8f;
+            panel.style.paddingTop = 10f;
+            panel.style.paddingBottom = 10f;
             panel.style.backgroundColor =
                 new Color(0.012f, 0.04f, 0.055f, 0.94f);
             panel.style.borderTopLeftRadius = 8f;

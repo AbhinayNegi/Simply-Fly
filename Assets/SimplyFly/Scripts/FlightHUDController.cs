@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace SimplyFly.GroundOps
 {
@@ -34,7 +35,9 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightPathMarkerHUD flightPathMarker;
         [SerializeField] private RunwayAlignmentHUD runwayAlignment;
         [SerializeField] private FlightHUDInstrument powerInstrument;
+        [SerializeField] private EngineInstrumentController engineInstrument;
         [SerializeField] private FlightHUDInstrument attitudeInstrument;
+        [SerializeField] private MiniAttitudeController miniAttitude;
         [SerializeField] private TMP_Text warningLabel;
         [SerializeField] private TMP_Text awarenessLabel;
         [SerializeField] private TMP_Text landingFeedbackLabel;
@@ -71,6 +74,9 @@ namespace SimplyFly.GroundOps
             EnsureHeadingRibbon();
             EnsureFlightPathMarker();
             EnsureRunwayAlignment();
+            EnsureEngineInstrument();
+            EnsureMiniAttitude();
+            EnsureHoldAssistStyle();
             if (wind == null) wind = FindAnyObjectByType<WindController>();
             if (slipSkidView != null)
                 slipSkidView.gameObject.SetActive(false);
@@ -104,6 +110,60 @@ namespace SimplyFly.GroundOps
                 runwayAlignment = gameObject.AddComponent<RunwayAlignmentHUD>();
             runwayAlignment.Bind(
                 FindAnyObjectByType<NavigationManager>(), flightPhysics);
+        }
+
+        private void EnsureEngineInstrument()
+        {
+            if (engineInstrument == null && powerInstrument != null)
+                engineInstrument =
+                    powerInstrument.GetComponent<EngineInstrumentController>();
+            if (engineInstrument == null && powerInstrument != null)
+                engineInstrument =
+                    powerInstrument.gameObject.AddComponent<EngineInstrumentController>();
+            engineInstrument?.Bind(engine);
+        }
+
+        private void EnsureMiniAttitude()
+        {
+            if (miniAttitude == null && attitudeInstrument != null)
+                miniAttitude =
+                    attitudeInstrument.GetComponent<MiniAttitudeController>();
+            if (miniAttitude == null && attitudeInstrument != null)
+                miniAttitude =
+                    attitudeInstrument.gameObject.AddComponent<MiniAttitudeController>();
+            miniAttitude?.Bind(flightPhysics);
+        }
+
+        private void EnsureHoldAssistStyle()
+        {
+            if (holdAssistLabel == null) return;
+            RectTransform labelRect = holdAssistLabel.rectTransform;
+            RectTransform container = labelRect.parent as RectTransform;
+            if (container == null) return;
+
+            container.anchorMin = container.anchorMax = new Vector2(0.5f, 0f);
+            container.pivot = new Vector2(0.5f, 0f);
+            container.anchoredPosition = new Vector2(0f, 255f);
+            container.sizeDelta = new Vector2(320f, 42f);
+
+            Image background = container.GetComponent<Image>();
+            if (background != null)
+                background.color = new Color(0.01f, 0.055f, 0.07f, 0.68f);
+            Outline outline = container.GetComponent<Outline>();
+            if (outline == null) outline = container.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.15f, 0.95f, 1f, 0.42f);
+            outline.effectDistance = new Vector2(1f, -1f);
+
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = new Vector2(10f, 5f);
+            labelRect.offsetMax = new Vector2(-10f, -5f);
+            holdAssistLabel.fontSize = 14f;
+            holdAssistLabel.enableAutoSizing = true;
+            holdAssistLabel.fontSizeMin = 11f;
+            holdAssistLabel.fontSizeMax = 14f;
+            holdAssistLabel.alignment = TextAlignmentOptions.Center;
+            holdAssistLabel.textWrappingMode = TextWrappingModes.NoWrap;
         }
 
         public void SetFlightPathMarkerEnabled(bool enabled) =>
@@ -263,18 +323,6 @@ namespace SimplyFly.GroundOps
                     ? safeColor
                     : normalColor);
 
-            powerInstrument?.SetDisplay(
-                $"{(throttle == null ? 0f : throttle.Throttle * 100f):000}%",
-                $"THROTTLE   RPM {(engine == null ? 0f : engine.CurrentRPM):0000}" +
-                $"\nFLAPS {(flaps == null ? 0f : flaps.ActualAngle):00}°",
-                flaps != null && flaps.SpeedWarning ? cautionColor : normalColor);
-
-            float pitch = flightPhysics == null ? 0f : flightPhysics.PitchAngle;
-            float bank = flightPhysics == null ? 0f : flightPhysics.BankAngle;
-            attitudeInstrument?.SetDisplay(
-                $"P {pitch:+0.0;-0.0;0.0}°",
-                $"BANK {bank:+0.0;-0.0;0.0}°",
-                Mathf.Abs(bank) > 45f ? cautionColor : normalColor);
         }
 
         private void UpdateStallWarning()

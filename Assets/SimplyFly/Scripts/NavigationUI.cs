@@ -45,6 +45,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private float maxVerticalScaleMeters = 280f;
         [SerializeField] private float zoomSmoothing = 3.5f;
         [SerializeField] private float glideSlopeOnPathToleranceMeters = 8f;
+        [SerializeField] private float glideSlopeSlightToleranceMeters = 20f;
         [SerializeField] private float glideSlopeHighLowWarningMeters = 20f;
 
         public bool ApproachHelperActive { get; private set; }
@@ -90,6 +91,12 @@ namespace SimplyFly.GroundOps
         private bool verticalProfileVisible = true;
         private float smoothedHorizontalScale = 4000f;
         private float smoothedVerticalScale = 260f;
+        private float smoothedGlideActualAltitude;
+        private float smoothedGlideIdealAltitude;
+        private float smoothedGlideDeviation;
+        private float actualAltitudeVelocity;
+        private float idealAltitudeVelocity;
+        private float deviationVelocity;
         private float modeToastTimer;
 
         private void Start()
@@ -241,7 +248,7 @@ namespace SimplyFly.GroundOps
 
             sidePanel = MakePanel(root, null, 18f, 430f, 200f);
             sidePanel.style.right = 18f;
-            AddLabel(sidePanel, "GLIDE PROFILE — 3° PATH", 14, true);
+            AddLabel(sidePanel, "SIDE VIEW — GLIDESLOPE TRAINING", 14, true);
             glideProfile = new GlideProfileElement { navigation = navigation };
             glideProfile.style.height = 112f;
             glideProfile.style.marginTop = 3f;
@@ -393,9 +400,18 @@ namespace SimplyFly.GroundOps
             bool wants2D =
                 guidanceMode == ApproachGuidanceDisplayMode.TwoDHelpers;
             bool wants3D = false;
+            Vector3 selectedRunwayForward = Quaternion.Euler(
+                0f, navigation.SelectedRunwayHeading, 0f) * Vector3.forward;
+            bool aircraftOnApproachSide = Vector3.Dot(
+                navigation.AircraftPosition - navigation.SelectedRunwayThreshold,
+                selectedRunwayForward) < 0f;
             bool sideVisible = ApproachHelperActive &&
                                wants2D &&
                                sideViewApproachHelperEnabled &&
+                               navigation.FinalApproachActive &&
+                               aircraftOnApproachSide &&
+                               (flightPhysics == null ||
+                                !flightPhysics.IsPhysicallyGrounded) &&
                                navigation.DistanceToThreshold <=
                                sideViewShowDistanceKm * 1000f;
             bool topVisible = ApproachHelperActive &&
@@ -455,28 +471,54 @@ namespace SimplyFly.GroundOps
         {
             if (sideVisible)
             {
-                float error = navigation.GlideSlopeAltitudeError;
-                float tolerance = navigation.DistanceToTouchdownTarget <
+                float actualAltitude = navigation.CurrentAltitudeAGL;
+                float idealAltitude = Mathf.Max(0f,
+                    navigation.DistanceToThreshold * Mathf.Tan(
+                        navigation.GlideSlopeAngle * Mathf.Deg2Rad));
+                float rawError = actualAltitude - idealAltitude;
+                smoothedGlideActualAltitude = Mathf.SmoothDamp(
+                    smoothedGlideActualAltitude, actualAltitude,
+                    ref actualAltitudeVelocity, 0.18f, Mathf.Infinity,
+                    Time.unscaledDeltaTime);
+                smoothedGlideIdealAltitude = Mathf.SmoothDamp(
+                    smoothedGlideIdealAltitude, idealAltitude,
+                    ref idealAltitudeVelocity, 0.18f, Mathf.Infinity,
+                    Time.unscaledDeltaTime);
+                smoothedGlideDeviation = Mathf.SmoothDamp(
+                    smoothedGlideDeviation, rawError,
+                    ref deviationVelocity, 0.18f, Mathf.Infinity,
+                    Time.unscaledDeltaTime);
+                float error = smoothedGlideDeviation;
+                float tolerance = navigation.DistanceToThreshold <
                                   closeViewDistanceMeters
                     ? Mathf.Min(
                         glideSlopeOnPathToleranceMeters,
                         navigation.ThresholdCrossingHeightTolerance)
                     : glideSlopeOnPathToleranceMeters;
                 UpdateSideViewZoom();
-                SideViewStatus =
-                    Mathf.Abs(error) <= tolerance
-                        ? "ON GLIDE"
-                        : error > 0f ? "HIGH — REDUCE ALTITUDE"
-                        : "LOW — REDUCE DESCENT / ADD POWER";
+                float slightTolerance = Mathf.Max(
+                    tolerance, glideSlopeSlightToleranceMeters);
+                float warningTolerance = Mathf.Max(
+                    slightTolerance, glideSlopeHighLowWarningMeters);
+                SideViewStatus = Mathf.Abs(error) <= tolerance
+                    ? "ON PATH"
+                    : error >= warningTolerance
+                        ? "TOO HIGH"
+                        : error > 0f
+                            ? "SLIGHTLY HIGH"
+                            : error <= -warningTolerance
+                                ? "TOO LOW"
+                                : "SLIGHTLY LOW";
                 sideStatus.text =
-                    $"{SideViewStatus}  {error:+0.0;-0.0;0.0} m   " +
-                    $"{FormatDistance(navigation.DistanceToTouchdownTarget)} TO TOUCHDOWN\n" +
-                    $"THRESHOLD {navigation.ThresholdCrossingHeight:0} m   " +
-                    $"TOUCHDOWN ZONE +{navigation.TouchdownTargetDistanceFromThreshold:0} m";
+                    $"{SideViewStatus}   {error:+0.0;-0.0;0.0} m FROM PATH   " +
+                    $"{FormatDistance(navigation.DistanceToThreshold)} TO {navigation.SelectedArrivalRunway}\n" +
+                    $"ACTUAL {smoothedGlideActualAltitude:0} m AGL   " +
+                    $"IDEAL {smoothedGlideIdealAltitude:0} m   " +
+                    $"ZOOM {SideViewZoomLevel:0.0}×";
                 sideStatus.style.color =
                     Mathf.Abs(error) <= tolerance
                         ? new Color(0.25f, 1f, 0.48f)
-                        : Mathf.Abs(error) >= glideSlopeHighLowWarningMeters
+                        : Mathf.Abs(error) >= warningTolerance
                             ? new Color(1f, 0.42f, 0.15f)
                             : new Color(1f, 0.75f, 0.18f);
                 if (glideProfile != null)
@@ -484,6 +526,13 @@ namespace SimplyFly.GroundOps
                     glideProfile.horizontalScale =
                         smoothedHorizontalScale;
                     glideProfile.verticalScale = smoothedVerticalScale;
+                    glideProfile.actualAltitude = smoothedGlideActualAltitude;
+                    glideProfile.idealAltitude = smoothedGlideIdealAltitude;
+                    glideProfile.distanceToThreshold =
+                        navigation.DistanceToThreshold;
+                    glideProfile.deviation = error;
+                    glideProfile.flightPathAngle = flightPhysics == null
+                        ? 0f : flightPhysics.FlightPathAngle;
                     glideProfile.flareMode = SideViewMode == "FLARE";
                     glideProfile.MarkDirtyRepaint();
                 }
@@ -522,7 +571,7 @@ namespace SimplyFly.GroundOps
 
         private void UpdateSideViewZoom()
         {
-            float distance = navigation.DistanceToTouchdownTarget;
+            float distance = navigation.DistanceToThreshold;
             float desiredHorizontal;
             float desiredVertical;
             if (!sideViewAutoZoomEnabled || distance > farViewDistanceMeters)
@@ -754,6 +803,11 @@ namespace SimplyFly.GroundOps
             public NavigationManager navigation;
             public float horizontalScale = 4000f;
             public float verticalScale = 280f;
+            public float actualAltitude;
+            public float idealAltitude;
+            public float distanceToThreshold;
+            public float deviation;
+            public float flightPathAngle;
             public bool flareMode;
 
             public GlideProfileElement() => generateVisualContent += Draw;
@@ -856,16 +910,38 @@ namespace SimplyFly.GroundOps
                 }
 
                 float distance = Mathf.Clamp(
-                    navigation.DistanceToTouchdownTarget, 0f, maxDistance);
-                float actualAltitude =
-                    navigation.TargetGlideSlopeAltitude +
-                    navigation.GlideSlopeAltitudeError -
-                    (navigation.ArrivalAirport?.ThresholdPoint.y ?? 0f);
+                    distanceToThreshold, 0f, maxDistance);
                 float planeX =
-                    touchdownX - distance / maxDistance * width;
+                    thresholdX - distance / maxDistance * width;
                 float planeY = bottom -
                     Mathf.Clamp(actualAltitude, 0f, maxAltitude) /
                     maxAltitude * height;
+                float idealY = bottom -
+                    Mathf.Clamp(idealAltitude, 0f, maxAltitude) /
+                    maxAltitude * height;
+
+                // Cyan actual path and a vertical deviation cue make the relation
+                // to the green ideal path readable without interpreting a needle.
+                p.lineWidth = 1.6f;
+                p.strokeColor = new Color(0.25f, 0.95f, 1f, 0.85f);
+                p.BeginPath();
+                p.MoveTo(new Vector2(planeX, planeY));
+                float pathLength = Mathf.Min(90f, thresholdX - planeX);
+                p.LineTo(new Vector2(
+                    planeX + pathLength,
+                    planeY - Mathf.Tan(flightPathAngle * Mathf.Deg2Rad) *
+                    pathLength));
+                p.Stroke();
+                p.lineWidth = 2f;
+                p.strokeColor = Mathf.Abs(deviation) <= 8f
+                    ? new Color(0.25f, 1f, 0.48f)
+                    : Mathf.Abs(deviation) >= 20f
+                        ? new Color(1f, 0.3f, 0.16f)
+                        : new Color(1f, 0.75f, 0.18f);
+                p.BeginPath();
+                p.MoveTo(new Vector2(planeX, planeY));
+                p.LineTo(new Vector2(planeX, idealY));
+                p.Stroke();
                 DrawSideAircraft(
                     p,
                     new Vector2(planeX, planeY),
