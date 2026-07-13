@@ -155,6 +155,13 @@ namespace SimplyFly.GroundOps
             mapVisible = false;
         }
 
+        public void SetLegacyHeadingBugVisible(bool visible)
+        {
+            headingBugEnabled = visible;
+            if (!visible && headingBug != null)
+                headingBug.style.display = DisplayStyle.None;
+        }
+
         public void SetTrajectorySettings(
             bool enabled,
             float predictionSeconds,

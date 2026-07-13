@@ -23,6 +23,7 @@ namespace SimplyFly.GroundOps
         private RectTransform valueBox;
         private TMP_Text valueLabel;
         private bool built;
+        private const float ScaleCenterY = -28f;
 
         private static readonly Color Accent = new Color(0.15f, 0.95f, 1f, 0.95f);
         private static readonly Color Label = new Color(0.88f, 0.95f, 1f, 0.95f);
@@ -50,7 +51,7 @@ namespace SimplyFly.GroundOps
                 displayedValue, targetValue, ref velocity, 0.12f,
                 Mathf.Infinity, Time.unscaledDeltaTime);
             float clamped = Mathf.Clamp(displayedValue, minimum, maximum);
-            float y = clamped * pixelsPerUnit;
+            float y = ScaleCenterY + clamped * pixelsPerUnit;
             pointer.anchoredPosition = new Vector2(92f, y);
             valueBox.anchoredPosition = new Vector2(0f, y);
             valueLabel.text = displayedValue.ToString(format);
@@ -80,16 +81,19 @@ namespace SimplyFly.GroundOps
             panel.anchoredPosition = new Vector2(100f, 0f);
             panel.gameObject.AddComponent<Image>().color = Frame;
 
-            TMP_Text heading = Text("Title", panel, 18f, FontStyles.Bold);
+            TMP_Text heading = Text("Title", panel, 15f, FontStyles.Bold);
             heading.text = title; heading.color = Accent; heading.alignment = TextAlignmentOptions.Center;
-            Place(heading.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(124f, 28f));
+            heading.enableAutoSizing = true; heading.fontSizeMin = 11f; heading.fontSizeMax = 15f;
+            heading.textWrappingMode = TextWrappingModes.NoWrap;
+            Place(heading.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -15f), new Vector2(126f, 22f));
             TMP_Text units = Text("Units", panel, 14f, FontStyles.Bold);
             units.text = unit; units.color = Label; units.alignment = TextAlignmentOptions.Center;
-            Place(units.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -44f), new Vector2(100f, 20f));
+            Place(units.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -36f), new Vector2(100f, 18f));
 
             RectTransform scale = Rect("Scale", panel);
             scale.anchorMin = scale.anchorMax = new Vector2(0.5f, 0.5f);
             scale.sizeDelta = new Vector2(120f, (maximum - minimum) * pixelsPerUnit + 30f);
+            scale.anchoredPosition = new Vector2(0f, ScaleCenterY);
 
             int index = 0;
             for (float value = minimum; value <= maximum + 0.001f; value += minorStep, index++)
@@ -111,6 +115,7 @@ namespace SimplyFly.GroundOps
 
             RectTransform zero = Rect("Zero Reference", panel);
             zero.anchorMin = zero.anchorMax = new Vector2(0.5f, 0.5f);
+            zero.anchoredPosition = new Vector2(0f, ScaleCenterY);
             zero.sizeDelta = new Vector2(118f, 2f); zero.gameObject.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.3f);
 
             pointer = Rect("VSI Pointer", host);

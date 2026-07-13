@@ -22,6 +22,8 @@ namespace SimplyFly.GroundOps
         public float WindVolume { get; private set; }
         public float WarningVolume { get; private set; }
         public bool HUDEnabled { get; private set; }
+        public bool FlightPathMarkerEnabled { get; private set; }
+        public bool RunwayAlignmentEnabled { get; private set; }
         public bool AwarenessEnabled { get; private set; }
         public bool PitchCoachEnabled { get; private set; }
         public bool CameraRecenterEnabled { get; private set; }
@@ -69,6 +71,8 @@ namespace SimplyFly.GroundOps
             WarningVolume =
                 PlayerPrefs.GetFloat("settings.warningVolume", 0.85f);
             HUDEnabled = GetBool("settings.hud", true);
+            FlightPathMarkerEnabled = GetBool("settings.flightPathMarker", false);
+            RunwayAlignmentEnabled = GetBool("settings.runwayAlignment", true);
             AwarenessEnabled = GetBool("settings.awareness", true);
             PitchCoachEnabled = GetBool("settings.pitchCoach", true);
             CameraRecenterEnabled = GetBool("settings.cameraRecenter", true);
@@ -188,6 +192,20 @@ namespace SimplyFly.GroundOps
             HUDEnabled = value;
             flightHUD?.SetHUDVisible(value);
             SaveBool("settings.hud", value);
+        }
+
+        public void SetFlightPathMarkerEnabled(bool value)
+        {
+            FlightPathMarkerEnabled = value;
+            flightHUD?.SetFlightPathMarkerEnabled(value);
+            SaveBool("settings.flightPathMarker", value);
+        }
+
+        public void SetRunwayAlignmentEnabled(bool value)
+        {
+            RunwayAlignmentEnabled = value;
+            flightHUD?.SetRunwayAlignmentEnabled(value);
+            SaveBool("settings.runwayAlignment", value);
         }
 
         public void SetAwarenessEnabled(bool value)
@@ -446,6 +464,8 @@ namespace SimplyFly.GroundOps
             aircraftAudio?.SetWindVolumeMultiplier(WindVolume);
             aircraftAudio?.SetWarningVolumeMultiplier(WarningVolume);
             flightHUD?.SetHUDVisible(HUDEnabled);
+            flightHUD?.SetFlightPathMarkerEnabled(FlightPathMarkerEnabled);
+            flightHUD?.SetRunwayAlignmentEnabled(RunwayAlignmentEnabled);
             awarenessAssist?.SetAssistEnabled(AwarenessEnabled);
             pitchCoach?.SetSettingEnabled(PitchCoachEnabled);
             cameraController?.SetAutoRecenterEnabled(CameraRecenterEnabled);

@@ -520,6 +520,9 @@ namespace SimplyFly.GroundOps
                 12,
                 new Color(0.68f, 0.82f, 0.85f));
             AddToggle("HUD", settings.HUDEnabled, settings.SetHUDEnabled);
+            AddToggle("FLIGHT PATH MARKER",
+                settings.FlightPathMarkerEnabled,
+                settings.SetFlightPathMarkerEnabled);
             AddToggle("PILOT AWARENESS ASSIST",
                 settings.AwarenessEnabled, settings.SetAwarenessEnabled);
             AddToggle("PITCH COACH",
@@ -594,6 +597,9 @@ namespace SimplyFly.GroundOps
                 settings.VerticalProfileEnabled,
                 settings.SetVerticalProfileEnabled);
             AddSection("APPROACH HELPERS");
+            AddToggle("RUNWAY ALIGNMENT GUIDANCE",
+                settings.RunwayAlignmentEnabled,
+                settings.SetRunwayAlignmentEnabled);
             AddToggle("APPROACH HELPERS",
                 settings.ApproachHelpersEnabled,
                 settings.SetApproachHelpersEnabled);

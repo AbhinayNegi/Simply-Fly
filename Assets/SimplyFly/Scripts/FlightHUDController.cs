@@ -30,6 +30,9 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightHUDInstrument verticalSpeedInstrument;
         [SerializeField] private VerticalSpeedIndicatorHUD verticalSpeedIndicator;
         [SerializeField] private FlightHUDInstrument headingInstrument;
+        [SerializeField] private HeadingRibbonController headingRibbon;
+        [SerializeField] private FlightPathMarkerHUD flightPathMarker;
+        [SerializeField] private RunwayAlignmentHUD runwayAlignment;
         [SerializeField] private FlightHUDInstrument powerInstrument;
         [SerializeField] private FlightHUDInstrument attitudeInstrument;
         [SerializeField] private TMP_Text warningLabel;
@@ -65,12 +68,49 @@ namespace SimplyFly.GroundOps
             EnsureAirspeedTape();
             EnsureAltitudeTape();
             EnsureVerticalSpeedIndicator();
+            EnsureHeadingRibbon();
+            EnsureFlightPathMarker();
+            EnsureRunwayAlignment();
             if (wind == null) wind = FindAnyObjectByType<WindController>();
             if (slipSkidView != null)
                 slipSkidView.gameObject.SetActive(false);
             ApplyHUDVisibility();
             if (landingFeedbackGroup != null) landingFeedbackGroup.alpha = 0f;
         }
+
+        private void EnsureHeadingRibbon()
+        {
+            if (headingRibbon == null && headingInstrument != null)
+                headingRibbon = headingInstrument.GetComponent<HeadingRibbonController>();
+            if (headingRibbon == null && headingInstrument != null)
+                headingRibbon = headingInstrument.gameObject.AddComponent<HeadingRibbonController>();
+            headingRibbon?.Bind(flightPhysics);
+        }
+
+        private void EnsureFlightPathMarker()
+        {
+            if (flightPathMarker == null)
+                flightPathMarker = GetComponent<FlightPathMarkerHUD>();
+            if (flightPathMarker == null)
+                flightPathMarker = gameObject.AddComponent<FlightPathMarkerHUD>();
+            flightPathMarker.Bind(flightPhysics);
+        }
+
+        private void EnsureRunwayAlignment()
+        {
+            if (runwayAlignment == null)
+                runwayAlignment = GetComponent<RunwayAlignmentHUD>();
+            if (runwayAlignment == null)
+                runwayAlignment = gameObject.AddComponent<RunwayAlignmentHUD>();
+            runwayAlignment.Bind(
+                FindAnyObjectByType<NavigationManager>(), flightPhysics);
+        }
+
+        public void SetFlightPathMarkerEnabled(bool enabled) =>
+            flightPathMarker?.SetSettingEnabled(enabled);
+
+        public void SetRunwayAlignmentEnabled(bool enabled) =>
+            runwayAlignment?.SetSettingEnabled(enabled);
 
         private void EnsureVerticalSpeedIndicator()
         {
