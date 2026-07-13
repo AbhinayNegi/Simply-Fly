@@ -14,6 +14,8 @@ namespace SimplyFly.GroundOps
         [SerializeField] private TMP_Text energyLabel;
         [SerializeField] private TMP_Text controlPressureLabel;
         [SerializeField] private TMP_Text airflowLabel;
+        [Tooltip("Legacy text readouts are redundant when the modern airspeed tape is active.")]
+        [SerializeField] private bool showLegacyTextLabels;
 
         [Header("Display")]
         [SerializeField] private bool visibleByDefault = true;
@@ -31,6 +33,11 @@ namespace SimplyFly.GroundOps
         private void Awake()
         {
             visible = visibleByDefault;
+            if (!showLegacyTextLabels)
+            {
+                if (energyLabel != null) energyLabel.gameObject.SetActive(false);
+                if (airflowLabel != null) airflowLabel.gameObject.SetActive(false);
+            }
             CacheStreaks();
             ApplyVisibility();
         }
@@ -107,7 +114,7 @@ namespace SimplyFly.GroundOps
 
         private void UpdateLabels()
         {
-            if (energyLabel != null)
+            if (showLegacyTextLabels && energyLabel != null)
             {
                 energyLabel.text = awareness.EnergyCue;
                 energyLabel.color =
@@ -124,7 +131,7 @@ namespace SimplyFly.GroundOps
                     !string.IsNullOrWhiteSpace(
                         awareness.ControlPressureCue));
             }
-            if (airflowLabel != null)
+            if (showLegacyTextLabels && airflowLabel != null)
             {
                 airflowLabel.text =
                     $"AIRFLOW {awareness.AirflowIntensity * 100f:0}%   [B] HIDE";

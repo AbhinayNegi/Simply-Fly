@@ -26,7 +26,9 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightHUDInstrument airspeedInstrument;
         [SerializeField] private AirspeedTapeHUD airspeedTape;
         [SerializeField] private FlightHUDInstrument altitudeInstrument;
+        [SerializeField] private AltitudeTapeHUD altitudeTape;
         [SerializeField] private FlightHUDInstrument verticalSpeedInstrument;
+        [SerializeField] private VerticalSpeedIndicatorHUD verticalSpeedIndicator;
         [SerializeField] private FlightHUDInstrument headingInstrument;
         [SerializeField] private FlightHUDInstrument powerInstrument;
         [SerializeField] private FlightHUDInstrument attitudeInstrument;
@@ -61,11 +63,31 @@ namespace SimplyFly.GroundOps
         {
             if (hudGroup == null) hudGroup = GetComponent<CanvasGroup>();
             EnsureAirspeedTape();
+            EnsureAltitudeTape();
+            EnsureVerticalSpeedIndicator();
             if (wind == null) wind = FindAnyObjectByType<WindController>();
             if (slipSkidView != null)
                 slipSkidView.gameObject.SetActive(false);
             ApplyHUDVisibility();
             if (landingFeedbackGroup != null) landingFeedbackGroup.alpha = 0f;
+        }
+
+        private void EnsureVerticalSpeedIndicator()
+        {
+            if (verticalSpeedIndicator == null && verticalSpeedInstrument != null)
+                verticalSpeedIndicator = verticalSpeedInstrument.GetComponent<VerticalSpeedIndicatorHUD>();
+            if (verticalSpeedIndicator == null && verticalSpeedInstrument != null)
+                verticalSpeedIndicator = verticalSpeedInstrument.gameObject.AddComponent<VerticalSpeedIndicatorHUD>();
+            verticalSpeedIndicator?.Bind(flightPhysics);
+        }
+
+        private void EnsureAltitudeTape()
+        {
+            if (altitudeTape == null && altitudeInstrument != null)
+                altitudeTape = altitudeInstrument.GetComponent<AltitudeTapeHUD>();
+            if (altitudeTape == null && altitudeInstrument != null)
+                altitudeTape = altitudeInstrument.gameObject.AddComponent<AltitudeTapeHUD>();
+            altitudeTape?.Bind(flightPhysics, approach);
         }
 
         private void EnsureAirspeedTape()
@@ -74,7 +96,12 @@ namespace SimplyFly.GroundOps
                 airspeedTape = airspeedInstrument.GetComponent<AirspeedTapeHUD>();
             if (airspeedTape == null && airspeedInstrument != null)
                 airspeedTape = airspeedInstrument.gameObject.AddComponent<AirspeedTapeHUD>();
-            airspeedTape?.Bind(flightPhysics);
+            AircraftSpeedPerformance performance = flightPhysics == null
+                ? null
+                : flightPhysics.GetComponent<AircraftSpeedPerformance>();
+            if (performance == null && flightPhysics != null)
+                performance = flightPhysics.gameObject.AddComponent<AircraftSpeedPerformance>();
+            airspeedTape?.Bind(flightPhysics, performance);
         }
 
         private void Update()
