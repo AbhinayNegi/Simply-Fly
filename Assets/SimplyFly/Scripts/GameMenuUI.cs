@@ -649,7 +649,8 @@ namespace SimplyFly.GroundOps
                 "W / S  —  Nose down / nose up\n" +
                 "A / D  —  Rudder / ground steering only\n" +
                 "Left / Right Arrow  —  Airborne roll only\n" +
-                "Space  —  Brake\n" +
+                "Space  —  Service brake (hold)\n" +
+                "J  —  Toggle parking brake\n" +
                 "F / V  —  Extend / retract flaps\n" +
                 "P  —  Toggle Pitch Hold Assist\n" +
                 "Alt + P  —  Toggle Vertical Speed Hold Assist\n" +

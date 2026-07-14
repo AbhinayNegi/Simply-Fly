@@ -23,6 +23,7 @@ namespace SimplyFly.GroundOps
 
         public EngineState State { get; private set; } = EngineState.Off;
         public float CurrentRPM { get; private set; }
+        public float MaximumRPM => maximumRPM;
         public float NormalizedRPM => maximumRPM <= 0f ? 0f : Mathf.Clamp01(CurrentRPM / maximumRPM);
 
         private float starterTimer;

@@ -26,8 +26,8 @@ namespace SimplyFly.GroundOps
 
         private void Update()
         {
-            float output = engine == null ? 0f : engine.NormalizedRPM;
             float rpm = engine == null ? 0f : engine.CurrentRPM;
+            float maximumRpm = engine == null ? 0f : engine.MaximumRPM;
             float throttlePosition = throttle == null ? 0f : throttle.Throttle;
             EngineInstrumentState state = engine == null
                 ? EngineInstrumentState.Off
@@ -39,7 +39,7 @@ namespace SimplyFly.GroundOps
                         EngineInstrumentState.Running,
                     _ => EngineInstrumentState.Off
                 };
-            view?.SetData(output, throttlePosition, rpm, state);
+            view?.SetData(throttlePosition, rpm, maximumRpm, state);
         }
     }
 }

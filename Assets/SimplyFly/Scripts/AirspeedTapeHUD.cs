@@ -31,6 +31,11 @@ namespace SimplyFly.GroundOps
 
         private void Awake()
         {
+            // The expanded Phase 2 engine panel occupies more vertical space.
+            // Lift the airspeed tape into the free upper-left area so the two
+            // instruments retain a clear visual gutter.
+            RectTransform host = (RectTransform)transform;
+            host.anchoredPosition += new Vector2(0f, 30f);
             if (tape == null) tape = GetComponent<NumericTapeHUD>();
             if (tape == null) tape = gameObject.AddComponent<NumericTapeHUD>();
             tape.ConfigureScale(5f, 2, 30f, "AIRSPEED", "KT", "000", 0f);

@@ -36,9 +36,20 @@ namespace SimplyFly.GroundOps
             if (active)
             {
                 releaseTimer = releaseHoldSeconds;
-                group.alpha = 1f;
                 label.text = parking ? "PARK BRAKE" : "BRAKING";
-                label.color = parking ? Cyan : Amber;
+                bool moveWarning = parking && brakes.ParkingBrakeMoveWarning;
+                if (moveWarning)
+                {
+                    float pulse = 0.5f + 0.5f *
+                        Mathf.Sin(Time.unscaledTime * Mathf.PI * 6f);
+                    group.alpha = Mathf.Lerp(0.42f, 1f, pulse);
+                    label.color = Color.Lerp(Amber, Color.white, pulse * 0.35f);
+                }
+                else
+                {
+                    group.alpha = 1f;
+                    label.color = parking ? Cyan : Amber;
+                }
                 return;
             }
 

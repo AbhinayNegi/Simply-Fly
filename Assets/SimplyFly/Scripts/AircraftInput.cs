@@ -9,6 +9,7 @@ namespace SimplyFly.GroundOps
         [Header("Bindings")]
         [SerializeField] private Key startEngineKey = Key.E;
         [SerializeField] private Key brakeKey = Key.Space;
+        [SerializeField] private Key parkingBrakeKey = Key.J;
         [SerializeField] private Key resetCameraKey = Key.R;
         [SerializeField] private Key extendFlapsKey = Key.F;
         [SerializeField] private Key retractFlapsKey = Key.V;
@@ -19,6 +20,7 @@ namespace SimplyFly.GroundOps
         public float RudderInput { get; private set; }
         public float ElevatorInput { get; private set; }
         public bool BrakeHeld { get; private set; }
+        public bool ParkingBrakeTogglePressed { get; private set; }
         public bool StartEnginePressed { get; private set; }
         public bool ResetCameraPressed { get; private set; }
         public bool FlapsExtendPressed { get; private set; }
@@ -74,6 +76,8 @@ namespace SimplyFly.GroundOps
                 ElevatorInput = Mathf.Clamp(
                     ElevatorInput + mouseYoke.PitchInput, -1f, 1f);
             BrakeHeld = keyboard[brakeKey].isPressed;
+            ParkingBrakeTogglePressed =
+                keyboard[parkingBrakeKey].wasPressedThisFrame;
             StartEnginePressed = keyboard[startEngineKey].wasPressedThisFrame;
             ResetCameraPressed = keyboard[resetCameraKey].wasPressedThisFrame;
             FlapsExtendPressed = keyboard[extendFlapsKey].wasPressedThisFrame;
@@ -103,6 +107,7 @@ namespace SimplyFly.GroundOps
             RudderInput = 0f;
             ElevatorInput = 0f;
             BrakeHeld = false;
+            ParkingBrakeTogglePressed = false;
             StartEnginePressed = false;
             ResetCameraPressed = false;
             FlapsExtendPressed = false;

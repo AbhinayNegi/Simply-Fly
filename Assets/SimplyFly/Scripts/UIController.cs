@@ -131,7 +131,8 @@ namespace SimplyFly.GroundOps
                 $"Grounded       {(flightPhysics != null && flightPhysics.IsPhysicallyGrounded ? "Yes" : "No")}\n" +
                 $"Vertical Speed {(flightPhysics == null ? 0f : flightPhysics.VerticalSpeed):+0.00;-0.00;0.00} m/s\n" +
                 $"Drag           {(flightPhysics == null ? 0f : flightPhysics.DragForce):0} N\n" +
-                $"Brakes         {(brakes != null && brakes.IsBraking ? $"{brakes.BrakeAmount * 100f:0}%" : "Released")}\n" +
+                $"Service Brake  {(brakes != null && brakes.BrakeInputActive ? $"{brakes.BrakeAmount * 100f:0}%" : "Released")}\n" +
+                $"Parking Brake  {(brakes != null && brakes.ParkingBrakeEnabled ? "SET" : "Released")}\n" +
                 $"Steering       {(steering == null ? 0f : steering.SteeringAngle):+0.0;-0.0;0.0} deg\n\n" +
                 "FLIGHT ASSISTS\n" +
                 $"Trim Enabled   {(trim != null && trim.TrimEnabled ? "Yes" : "NO")}\n" +
@@ -179,7 +180,8 @@ namespace SimplyFly.GroundOps
                 $"Touchdown elev {(navigation == null ? 0f : navigation.TouchdownTargetPoint.y):0} m\n\n" +
                 "E Start | Shift/Ctrl Throttle | A/D Rudder/Steer\n" +
                 "Left/Right Arrow Roll | U Mouse Yoke\n" +
-                "S/Down Nose Up | W/Up Nose Down | Space Brake\n" +
+                "S/Down Nose Up | W/Up Nose Down | Space Service Brake\n" +
+                "J Toggle Parking Brake\n" +
                 "F Extend Flaps | V Retract Flaps\n" +
                 "P Pitch Hold | Alt+P VS Hold | +/- or Wheel Adjust VS\n" +
                 "RMB Orbit | Z/X Quick Look | C Camera Mode | R Recenter\n" +

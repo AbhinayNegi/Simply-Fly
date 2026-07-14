@@ -6,50 +6,55 @@ namespace SimplyFly.GroundOps
 {
     public enum EngineInstrumentState { Off, Starting, Running, Warning }
 
-    /// <summary>Engine-agnostic presentation accepting normalized output, RPM and state.</summary>
+    /// <summary>Engine-agnostic presentation for command, speed and state.</summary>
     [DisallowMultipleComponent]
     public sealed class EngineInstrumentHUD : MonoBehaviour
     {
-        [Min(0.01f)] [SerializeField] private float valueSmoothing = 0.16f;
-        [Min(0.01f)] [SerializeField] private float throttleSmoothing = 0.06f;
-        [Min(0.1f)] [SerializeField] private float statusFadeSpeed = 4f;
+        [Min(0.01f)] [SerializeField] private float throttleSmoothing = 0.045f;
+        [Min(0.01f)] [SerializeField] private float rpmSmoothing = 0.16f;
+        [Min(0.1f)] [SerializeField] private float statusFadeSpeed = 5f;
 
-        private RectTransform barFill;
-        private TMP_Text outputLabel;
-        private TMP_Text throttleLabel;
-        private TMP_Text rpmLabel;
+        private const int SegmentCount = 20;
+        private const float BarWidth = 194f;
+
+        private readonly Image[] throttleSegments = new Image[SegmentCount];
+        private TMP_Text throttleValue;
+        private TMP_Text rpmValue;
+        private TMP_Text maximumRpmLabel;
         private TMP_Text statusLabel;
+        private RectTransform throttleMarker;
+        private RectTransform rpmFill;
+        private Image statusDot;
         private CanvasGroup statusGroup;
-        private float targetOutput;
-        private float displayedOutput;
-        private float outputVelocity;
+
         private float targetThrottle;
         private float displayedThrottle;
         private float throttleVelocity;
         private float targetRpm;
         private float displayedRpm;
         private float rpmVelocity;
+        private float maximumRpm = 2700f;
         private EngineInstrumentState displayedState;
         private EngineInstrumentState pendingState;
         private bool stateChanging;
         private bool built;
 
-        private const float BarWidth = 174f;
-        private static readonly Color Cyan = new Color(0.15f, 0.95f, 1f, 0.96f);
-        private static readonly Color White = new Color(0.88f, 0.95f, 1f, 0.9f);
-        private static readonly Color Green = new Color(0.28f, 0.92f, 0.23f, 0.96f);
-        private static readonly Color Amber = new Color(1f, 0.68f, 0.08f, 0.98f);
-        private static readonly Color Red = new Color(1f, 0.16f, 0.12f, 0.98f);
+        private static readonly Color Cyan = new(0.15f, 0.95f, 1f, 0.98f);
+        private static readonly Color White = new(0.88f, 0.95f, 1f, 0.92f);
+        private static readonly Color Muted = new(0.62f, 0.7f, 0.73f, 0.86f);
+        private static readonly Color Green = new(0.28f, 0.92f, 0.12f, 0.98f);
+        private static readonly Color Amber = new(1f, 0.65f, 0.06f, 0.98f);
+        private static readonly Color Red = new(1f, 0.16f, 0.12f, 0.98f);
+        private static readonly Color Empty = new(0.16f, 0.21f, 0.23f, 0.78f);
 
-        public void SetData(float normalizedOutput, float throttlePosition, float rpm,
-            EngineInstrumentState state)
+        public void SetData(float throttlePosition, float rpm,
+            float configuredMaximumRpm, EngineInstrumentState state)
         {
             if (!built) Build();
-            targetOutput = Mathf.Clamp01(normalizedOutput);
             targetThrottle = Mathf.Clamp01(throttlePosition);
             targetRpm = Mathf.Max(0f, rpm);
-            if (state != displayedState &&
-                (!stateChanging || state != pendingState))
+            maximumRpm = Mathf.Max(1f, configuredMaximumRpm);
+            if (state != displayedState && (!stateChanging || state != pendingState))
             {
                 pendingState = state;
                 stateChanging = true;
@@ -59,26 +64,25 @@ namespace SimplyFly.GroundOps
         private void LateUpdate()
         {
             if (!built) return;
-            displayedOutput = Mathf.SmoothDamp(
-                displayedOutput, targetOutput, ref outputVelocity,
-                valueSmoothing, Mathf.Infinity, Time.unscaledDeltaTime);
-            displayedRpm = Mathf.SmoothDamp(
-                displayedRpm, targetRpm, ref rpmVelocity,
-                valueSmoothing, Mathf.Infinity, Time.unscaledDeltaTime);
-            displayedThrottle = Mathf.SmoothDamp(
-                displayedThrottle, targetThrottle, ref throttleVelocity,
-                throttleSmoothing, Mathf.Infinity, Time.unscaledDeltaTime);
-            outputLabel.text = $"{displayedOutput * 100f:0}%";
-            throttleLabel.text = $"{displayedThrottle * 100f:0}%";
-            rpmLabel.text = $"{displayedRpm:0000}";
-            barFill.sizeDelta = new Vector2(
-                BarWidth * Mathf.Clamp01(displayedOutput), 10f);
+            float dt = Time.unscaledDeltaTime;
+            displayedThrottle = Mathf.SmoothDamp(displayedThrottle, targetThrottle,
+                ref throttleVelocity, throttleSmoothing, Mathf.Infinity, dt);
+            displayedRpm = Mathf.SmoothDamp(displayedRpm, targetRpm,
+                ref rpmVelocity, rpmSmoothing, Mathf.Infinity, dt);
+
+            throttleValue.text = $"{displayedThrottle * 100f:0}%";
+            rpmValue.text = $"{displayedRpm:0}";
+            maximumRpmLabel.text = $"MAX {maximumRpm:0} RPM";
+            RefreshSegments(throttleSegments, displayedThrottle, Cyan);
+            throttleMarker.anchoredPosition = new Vector2(
+                Mathf.Lerp(0f, BarWidth, Mathf.Clamp01(displayedThrottle)), 0f);
+            rpmFill.sizeDelta = new Vector2(
+                BarWidth * Mathf.Clamp01(displayedRpm / maximumRpm), 4f);
 
             if (stateChanging)
             {
                 statusGroup.alpha = Mathf.MoveTowards(
-                    statusGroup.alpha, 0f,
-                    statusFadeSpeed * Time.unscaledDeltaTime);
+                    statusGroup.alpha, 0f, statusFadeSpeed * dt);
                 if (statusGroup.alpha <= 0.01f)
                 {
                     displayedState = pendingState;
@@ -89,8 +93,7 @@ namespace SimplyFly.GroundOps
             else
             {
                 statusGroup.alpha = Mathf.MoveTowards(
-                    statusGroup.alpha, 1f,
-                    statusFadeSpeed * Time.unscaledDeltaTime);
+                    statusGroup.alpha, 1f, statusFadeSpeed * dt);
             }
         }
 
@@ -102,113 +105,184 @@ namespace SimplyFly.GroundOps
             if (legacyPanel != null) legacyPanel.enabled = false;
             for (int i = 0; i < host.childCount; i++)
                 host.GetChild(i).gameObject.SetActive(false);
-            host.sizeDelta = new Vector2(210f, 220f);
+            host.sizeDelta = new Vector2(230f, 270f);
 
             RectTransform panel = Rect("Engine Panel", host);
             Stretch(panel);
-            Image background = panel.gameObject.AddComponent<Image>();
-            background.color = new Color(0.01f, 0.035f, 0.05f, 0.84f);
+            panel.gameObject.AddComponent<Image>().color =
+                new Color(0.01f, 0.035f, 0.05f, 0.82f);
             Outline outline = panel.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0.55f, 0.72f, 0.76f, 0.5f);
+            outline.effectColor = new Color(0.5f, 0.72f, 0.76f, 0.52f);
             outline.effectDistance = new Vector2(1f, -1f);
 
-            TMP_Text title = Text("Title", panel, 17f, FontStyles.Bold,
-                new Vector2(0f, 95f), new Vector2(190f, 24f));
-            title.text = "ENGINE"; title.color = White;
-            outputLabel = Text("Output", panel, 32f, FontStyles.Normal,
-                new Vector2(0f, 66f), new Vector2(180f, 34f));
-            outputLabel.color = Cyan;
-            TMP_Text powerCaption = Text("Power Label", panel, 12f,
-                FontStyles.Normal, new Vector2(0f, 44f), new Vector2(130f, 18f));
-            powerCaption.text = "ENGINE OUTPUT"; powerCaption.color = White;
+            TMP_Text title = Text("Title", panel, 18f, FontStyles.Bold,
+                new Vector2(-14f, 122f), new Vector2(150f, 24f));
+            title.text = "ENGINE"; title.color = Cyan;
+            BuildEngineIcon(panel, new Vector2(88f, 122f));
+            Divider(panel, 104f);
 
-            RectTransform barTrack = Rect("Power Bar Track", panel);
-            Place(barTrack, new Vector2(-BarWidth * 0.5f, 27f),
-                new Vector2(BarWidth, 10f));
-            barTrack.gameObject.AddComponent<Image>().color =
-                new Color(0.2f, 0.25f, 0.27f, 0.75f);
-            barFill = Rect("Power Bar Fill", barTrack);
-            barFill.anchorMin = barFill.anchorMax = new Vector2(0f, 0.5f);
-            barFill.pivot = new Vector2(0f, 0.5f);
-            barFill.anchoredPosition = Vector2.zero;
-            barFill.sizeDelta = new Vector2(0f, 10f);
-            barFill.gameObject.AddComponent<Image>().color = Green;
+            Label(panel, "THROTTLE", 85f);
+            throttleValue = Value(panel, "Throttle Value", 60f, 29f);
+            BuildSegmentBar(panel, "Throttle Bar", 35f, throttleSegments, true);
+            ScaleLabels(panel, 21f);
+            Divider(panel, 4f);
 
-            TMP_Text throttleCaption = Text("Throttle Label", panel, 12f,
-                FontStyles.Normal, new Vector2(-38f, 7f), new Vector2(90f, 18f));
-            throttleCaption.text = "THROTTLE"; throttleCaption.color = White;
-            throttleLabel = Text("Throttle", panel, 20f, FontStyles.Normal,
-                new Vector2(49f, 7f), new Vector2(82f, 24f));
-            throttleLabel.color = Cyan;
+            Label(panel, "RPM", -15f);
+            rpmValue = Value(panel, "RPM Value", -42f, 30f);
+            maximumRpmLabel = Text("Maximum RPM", panel, 11f, FontStyles.Normal,
+                new Vector2(-46f, -65f), new Vector2(106f, 18f));
+            maximumRpmLabel.color = White;
+            RectTransform rpmTrack = Rect("RPM Track", panel);
+            Place(rpmTrack, new Vector2(-BarWidth * 0.5f, -81f),
+                new Vector2(BarWidth, 4f));
+            rpmTrack.gameObject.AddComponent<Image>().color = Empty;
+            rpmFill = Rect("RPM Fill", rpmTrack);
+            rpmFill.anchorMin = rpmFill.anchorMax = new Vector2(0f, 0.5f);
+            rpmFill.pivot = new Vector2(0f, 0.5f);
+            rpmFill.anchoredPosition = Vector2.zero;
+            rpmFill.sizeDelta = new Vector2(0f, 4f);
+            rpmFill.gameObject.AddComponent<Image>().color = Green;
+            Divider(panel, -95f);
 
-            TMP_Text rpmCaption = Text("RPM Label", panel, 12f,
-                FontStyles.Normal, new Vector2(0f, -25f), new Vector2(80f, 18f));
-            rpmCaption.text = "RPM"; rpmCaption.color = White;
-            rpmLabel = Text("RPM", panel, 25f, FontStyles.Normal,
-                new Vector2(0f, -47f), new Vector2(130f, 31f));
-            rpmLabel.color = Cyan;
-
-            RectTransform divider = Rect("Divider", panel);
-            Place(divider, new Vector2(-87f, -70f), new Vector2(174f, 1f));
-            divider.gameObject.AddComponent<Image>().color =
-                new Color(0.65f, 0.78f, 0.8f, 0.35f);
-            statusLabel = Text("Status", panel, 14f, FontStyles.Bold,
-                new Vector2(0f, -88f), new Vector2(170f, 22f));
-            statusGroup = statusLabel.gameObject.AddComponent<CanvasGroup>();
+            RectTransform stateRow = Rect("Engine State", panel);
+            Place(stateRow, new Vector2(-82f, -126f), new Vector2(164f, 24f));
+            statusGroup = stateRow.gameObject.AddComponent<CanvasGroup>();
+            statusDot = Rect("Status Dot", stateRow).gameObject.AddComponent<Image>();
+            Place(statusDot.rectTransform, new Vector2(-70f, -5f), new Vector2(10f, 10f));
+            statusLabel = Text("Status", stateRow, 14f, FontStyles.Bold,
+                new Vector2(10f, 0f), new Vector2(128f, 22f));
             displayedState = EngineInstrumentState.Off;
             pendingState = displayedState;
             ApplyState();
         }
 
+        private void BuildSegmentBar(Transform parent, string name, float y,
+            Image[] segments, bool addMarker)
+        {
+            RectTransform bar = Rect(name, parent);
+            Place(bar, new Vector2(-BarWidth * 0.5f, y), new Vector2(BarWidth, 12f));
+            float gap = 2f;
+            float width = (BarWidth - gap * (SegmentCount - 1)) / SegmentCount;
+            for (int i = 0; i < SegmentCount; i++)
+            {
+                Image segment = Rect($"Segment {i + 1}", bar).gameObject.AddComponent<Image>();
+                Place(segment.rectTransform, new Vector2(
+                        -BarWidth * 0.5f + i * (width + gap), -6f),
+                    new Vector2(width, 12f));
+                segment.color = Empty;
+                segments[i] = segment;
+            }
+            if (!addMarker) return;
+            throttleMarker = Rect("Throttle Position Marker", bar);
+            throttleMarker.anchorMin = throttleMarker.anchorMax = new Vector2(0f, 0.5f);
+            throttleMarker.pivot = new Vector2(0.5f, 0.5f);
+            throttleMarker.sizeDelta = new Vector2(4f, 20f);
+            throttleMarker.gameObject.AddComponent<Image>().color = White;
+        }
+
+        private static void RefreshSegments(Image[] segments, float value, Color fill)
+        {
+            float count = Mathf.Clamp01(value) * SegmentCount;
+            for (int i = 0; i < segments.Length; i++)
+                segments[i].color = i + 0.5f < count ? fill : Empty;
+        }
+
         private void ApplyState()
         {
-            Color stateColor;
+            Color color;
             switch (displayedState)
             {
                 case EngineInstrumentState.Starting:
-                    statusLabel.text = "●  STARTING"; stateColor = Amber; break;
+                    statusLabel.text = "STARTING"; color = Amber; break;
                 case EngineInstrumentState.Running:
-                    statusLabel.text = "●  RUNNING"; stateColor = Green; break;
+                    statusLabel.text = "RUNNING"; color = Green; break;
                 case EngineInstrumentState.Warning:
-                    statusLabel.text = "●  WARNING"; stateColor = Red; break;
+                    statusLabel.text = "HOT"; color = Red; break;
                 default:
-                    statusLabel.text = "●  OFF"; stateColor = White; break;
+                    statusLabel.text = "OFF"; color = Muted; break;
             }
-            statusLabel.color = stateColor;
-            barFill.GetComponent<Image>().color = displayedState switch
+            statusLabel.color = color;
+            statusDot.color = color;
+            rpmFill.GetComponent<Image>().color =
+                displayedState == EngineInstrumentState.Warning ? Red :
+                displayedState == EngineInstrumentState.Starting ? Amber : Green;
+        }
+
+        private static void BuildEngineIcon(Transform parent, Vector2 center)
+        {
+            RectTransform body = Rect("Engine Icon", parent);
+            Place(body, center - new Vector2(18f, 8f), new Vector2(31f, 17f));
+            body.gameObject.AddComponent<Image>().color =
+                new Color(0.01f, 0.035f, 0.05f, 0.01f);
+            Outline border = body.gameObject.AddComponent<Outline>();
+            border.effectColor = Cyan; border.effectDistance = new Vector2(1f, -1f);
+            Image top = Rect("Engine Top", body).gameObject.AddComponent<Image>();
+            Place(top.rectTransform, new Vector2(-8.5f, 8.5f), new Vector2(14f, 3f));
+            top.color = Cyan;
+            Image nose = Rect("Engine Nose", body).gameObject.AddComponent<Image>();
+            Place(nose.rectTransform, new Vector2(15.5f, -3.5f), new Vector2(5f, 8f));
+            nose.color = Cyan;
+        }
+
+        private static void Label(Transform parent, string value, float y)
+        {
+            TMP_Text label = Text(value, parent, 12f, FontStyles.Bold,
+                new Vector2(0f, y), new Vector2(200f, 18f));
+            label.text = value; label.color = White;
+        }
+
+        private static TMP_Text Value(Transform parent, string name, float y, float size)
+        {
+            TMP_Text value = Text(name, parent, size, FontStyles.Normal,
+                new Vector2(0f, y), new Vector2(204f, 38f));
+            value.color = Cyan;
+            return value;
+        }
+
+        private static void ScaleLabels(Transform parent, float y)
+        {
+            string[] values = { "0%", "50%", "100%" };
+            float[] x = { -86f, 0f, 86f };
+            for (int i = 0; i < values.Length; i++)
             {
-                EngineInstrumentState.Starting => Amber,
-                EngineInstrumentState.Warning => Red,
-                EngineInstrumentState.Running => Green,
-                _ => new Color(0.35f, 0.42f, 0.45f, 0.85f)
-            };
+                TMP_Text label = Text($"Scale {values[i]}", parent, 9f,
+                    FontStyles.Normal, new Vector2(x[i], y), new Vector2(40f, 14f));
+                label.text = values[i]; label.color = Muted;
+            }
+        }
+
+        private static void Divider(Transform parent, float y)
+        {
+            RectTransform line = Rect("Divider", parent);
+            Place(line, new Vector2(-103f, y), new Vector2(206f, 1f));
+            line.gameObject.AddComponent<Image>().color =
+                new Color(0.65f, 0.78f, 0.8f, 0.34f);
         }
 
         private static TMP_Text Text(string name, Transform parent, float size,
-            FontStyles style, Vector2 position, Vector2 dimensions)
+            FontStyles style, Vector2 center, Vector2 dimensions)
         {
             TMP_Text text = Rect(name, parent).gameObject.AddComponent<TextMeshProUGUI>();
             text.fontSize = size; text.fontStyle = style;
             text.alignment = TextAlignmentOptions.Center;
             text.raycastTarget = false;
-            Place(text.rectTransform, position - dimensions * 0.5f, dimensions);
+            Place(text.rectTransform, center - dimensions * 0.5f, dimensions);
             return text;
         }
 
         private static RectTransform Rect(string name, Transform parent)
         {
-            GameObject go = new GameObject(name, typeof(RectTransform));
+            GameObject go = new(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
             return (RectTransform)go.transform;
         }
 
-        private static void Place(RectTransform rect, Vector2 position,
-            Vector2 dimensions)
+        private static void Place(RectTransform rect, Vector2 position, Vector2 size)
         {
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = Vector2.zero;
             rect.anchoredPosition = position;
-            rect.sizeDelta = dimensions;
+            rect.sizeDelta = size;
         }
 
         private static void Stretch(RectTransform rect)

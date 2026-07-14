@@ -100,6 +100,7 @@ namespace SimplyFly.GroundOps
                 Vector3.zero,
                 false,
                 0f);
+            brakes?.SetParkingBrake(true);
         }
 
         public void SpawnAirborneTest()
