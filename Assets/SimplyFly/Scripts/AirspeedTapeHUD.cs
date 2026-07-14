@@ -35,10 +35,11 @@ namespace SimplyFly.GroundOps
             // Lift the airspeed tape into the free upper-left area so the two
             // instruments retain a clear visual gutter.
             RectTransform host = (RectTransform)transform;
-            host.anchoredPosition += new Vector2(0f, 30f);
+            host.anchoredPosition = new Vector2(host.anchoredPosition.x, 70f);
             if (tape == null) tape = GetComponent<NumericTapeHUD>();
             if (tape == null) tape = gameObject.AddComponent<NumericTapeHUD>();
-            tape.ConfigureScale(5f, 2, 30f, "AIRSPEED", "KT", "000", 0f);
+            tape.ConfigureAirspeedPresentation();
+            tape.ConfigureScale(1f, 10, 5f, "AIRSPEED", "KT", "000", 0f);
             if (flightPhysics == null) flightPhysics = FindAnyObjectByType<FlightPhysicsController>();
             if (performance == null && flightPhysics != null)
                 performance = flightPhysics.GetComponent<AircraftSpeedPerformance>();

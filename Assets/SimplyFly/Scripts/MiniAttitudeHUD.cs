@@ -30,7 +30,7 @@ namespace SimplyFly.GroundOps
     {
         [Min(0.01f)] [SerializeField] private float smoothingTime = 0.1f;
         [Range(15f, 60f)] [SerializeField] private float displayedPitchLimit = 35f;
-        [Min(0.5f)] [SerializeField] private float pixelsPerPitchDegree = 2.1f;
+        [Min(0.5f)] [SerializeField] private float pixelsPerPitchDegree = 2.35f;
 
         private RectTransform horizon;
         private RectTransform bankPointer;
@@ -53,8 +53,8 @@ namespace SimplyFly.GroundOps
             public Vector2 NormalSize;
         }
 
-        private static readonly Color Cyan = new Color(0.15f, 0.95f, 1f, 0.97f);
-        private static readonly Color White = new Color(0.9f, 0.96f, 1f, 0.92f);
+        private static readonly Color Cyan = FlightHUDStyle.Cyan;
+        private static readonly Color White = FlightHUDStyle.White;
         private static readonly Color Sky = new Color(0.12f, 0.38f, 0.68f, 0.96f);
         private static readonly Color Ground = new Color(0.29f, 0.19f, 0.11f, 0.98f);
 
@@ -95,32 +95,34 @@ namespace SimplyFly.GroundOps
             if (legacyPanel != null) legacyPanel.enabled = false;
             for (int i = 0; i < host.childCount; i++)
                 host.GetChild(i).gameObject.SetActive(false);
-            host.sizeDelta = new Vector2(220f, 218f);
+            if (host.anchorMin.y <= 0.01f && host.anchorMax.y <= 0.01f)
+                host.anchoredPosition = new Vector2(
+                    host.anchoredPosition.x,
+                    Mathf.Max(host.anchoredPosition.y, FlightHUDStyle.BottomSafeMargin));
+            host.sizeDelta = new Vector2(272f, 268f);
 
             RectTransform panel = Rect("Mini Attitude Panel", host);
             Stretch(panel);
             Image background = panel.gameObject.AddComponent<Image>();
-            background.color = new Color(0.01f, 0.035f, 0.05f, 0.86f);
-            Outline frame = panel.gameObject.AddComponent<Outline>();
-            frame.effectColor = new Color(0.55f, 0.72f, 0.76f, 0.5f);
-            frame.effectDistance = new Vector2(1f, -1f);
+            background.color = FlightHUDStyle.PrimaryPanel;
+            FlightHUDStyle.AddOutline(panel.gameObject);
 
             TMP_Text title = Text("Title", panel, 16f, FontStyles.Bold);
             title.text = "ATTITUDE"; title.color = Cyan;
-            PlaceCentered(title.rectTransform, new Vector2(0f, 94f),
-                new Vector2(190f, 22f));
+            PlaceCentered(title.rectTransform, new Vector2(0f, 118f),
+                new Vector2(220f, 22f));
 
             RectTransform viewport = Rect("Horizon Viewport", panel);
             viewport.anchorMin = viewport.anchorMax = new Vector2(0.5f, 0.5f);
-            viewport.anchoredPosition = new Vector2(0f, 17f);
-            viewport.sizeDelta = new Vector2(184f, 132f);
+            viewport.anchoredPosition = new Vector2(0f, 25f);
+            viewport.sizeDelta = new Vector2(232f, 166f);
             viewport.gameObject.AddComponent<RectMask2D>();
             Image viewportBorder = viewport.gameObject.AddComponent<Image>();
             viewportBorder.color = new Color(0.03f, 0.07f, 0.09f, 1f);
 
             horizon = Rect("Moving Horizon", viewport);
             horizon.anchorMin = horizon.anchorMax = new Vector2(0.5f, 0.5f);
-            horizon.sizeDelta = new Vector2(310f, 310f);
+            horizon.sizeDelta = new Vector2(380f, 380f);
 
             RectTransform sky = Rect("Sky", horizon);
             sky.anchorMin = new Vector2(0f, 0.5f);
@@ -133,7 +135,7 @@ namespace SimplyFly.GroundOps
             ground.offsetMin = ground.offsetMax = Vector2.zero;
             ground.gameObject.AddComponent<Image>().color = Ground;
             AddLine("Horizon Line", horizon, Vector2.zero,
-                new Vector2(310f, 2f), White);
+                new Vector2(350f, 2.5f), White);
             AddPitchMarks(horizon);
 
             // Bank scale is parented to the fixed viewport, not the moving
@@ -141,31 +143,31 @@ namespace SimplyFly.GroundOps
             AddBankReferenceScale(viewport);
 
             // Fixed aircraft reference: wings, center dot and short nose bars.
-            AddLine("Aircraft Left Wing", viewport, new Vector2(-42f, 0f),
-                new Vector2(58f, 3f), Cyan);
-            AddLine("Aircraft Right Wing", viewport, new Vector2(42f, 0f),
-                new Vector2(58f, 3f), Cyan);
-            AddLine("Aircraft Left Tip", viewport, new Vector2(-68f, -5f),
-                new Vector2(3f, 12f), Cyan);
-            AddLine("Aircraft Right Tip", viewport, new Vector2(68f, -5f),
-                new Vector2(3f, 12f), Cyan);
+            AddLine("Aircraft Left Wing", viewport, new Vector2(-49f, 0f),
+                new Vector2(68f, 3f), Cyan);
+            AddLine("Aircraft Right Wing", viewport, new Vector2(49f, 0f),
+                new Vector2(68f, 3f), Cyan);
+            AddLine("Aircraft Left Tip", viewport, new Vector2(-82f, -5f),
+                new Vector2(3f, 13f), Cyan);
+            AddLine("Aircraft Right Tip", viewport, new Vector2(82f, -5f),
+                new Vector2(3f, 13f), Cyan);
             RectTransform center = Rect("Aircraft Center", viewport);
             center.anchorMin = center.anchorMax = new Vector2(0.5f, 0.5f);
-            center.sizeDelta = new Vector2(10f, 10f);
+            center.sizeDelta = new Vector2(11f, 11f);
             center.gameObject.AddComponent<Image>().color = Cyan;
 
-            AddLine("Readout Divider", panel, new Vector2(0f, -59f),
-                new Vector2(184f, 1f), new Color(White.r, White.g, White.b, 0.35f));
+            AddLine("Readout Divider", panel, new Vector2(0f, -68f),
+                new Vector2(232f, 1f), new Color(White.r, White.g, White.b, 0.42f));
             pitchLabel = Text("Pitch Value", panel, 14f, FontStyles.Normal);
             pitchLabel.color = Cyan;
-            PlaceCentered(pitchLabel.rectTransform, new Vector2(-52f, -84f),
-                new Vector2(92f, 43f));
+            PlaceCentered(pitchLabel.rectTransform, new Vector2(-62f, -101f),
+                new Vector2(108f, 45f));
             bankLabel = Text("Bank Value", panel, 14f, FontStyles.Normal);
             bankLabel.color = Cyan;
-            PlaceCentered(bankLabel.rectTransform, new Vector2(52f, -84f),
-                new Vector2(92f, 43f));
-            AddLine("Digital Divider", panel, new Vector2(0f, -84f),
-                new Vector2(1f, 37f), new Color(White.r, White.g, White.b, 0.3f));
+            PlaceCentered(bankLabel.rectTransform, new Vector2(62f, -101f),
+                new Vector2(108f, 45f));
+            AddLine("Digital Divider", panel, new Vector2(0f, -101f),
+                new Vector2(1f, 40f), new Color(White.r, White.g, White.b, 0.3f));
         }
 
         private void AddPitchMarks(Transform parent)
@@ -187,7 +189,7 @@ namespace SimplyFly.GroundOps
 
         private void AddBankReferenceScale(Transform parent)
         {
-            const float radius = 57f;
+            const float radius = 72f;
             for (int angle = -60; angle <= 60; angle += 5)
             {
                 if (angle % 10 == 0) continue;
@@ -233,7 +235,7 @@ namespace SimplyFly.GroundOps
             bankPointer = Rect("Current Bank Pointer", parent);
             bankPointer.anchorMin = bankPointer.anchorMax =
                 new Vector2(0.5f, 0.5f);
-            bankPointer.anchoredPosition = new Vector2(0f, 57f);
+            bankPointer.anchoredPosition = new Vector2(0f, 72f);
             bankPointer.sizeDelta = new Vector2(13f, 9f);
             if (bankPointer.GetComponent<CanvasRenderer>() == null)
                 bankPointer.gameObject.AddComponent<CanvasRenderer>();
@@ -251,8 +253,8 @@ namespace SimplyFly.GroundOps
             if (bankPointer != null)
             {
                 bankPointer.anchoredPosition = new Vector2(
-                    Mathf.Sin(radians) * 57f,
-                    Mathf.Cos(radians) * 57f);
+                    Mathf.Sin(radians) * 72f,
+                    Mathf.Cos(radians) * 72f);
                 bankPointer.localRotation =
                     Quaternion.Euler(0f, 0f, -pointerBank);
             }

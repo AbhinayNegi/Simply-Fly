@@ -25,9 +25,9 @@ namespace SimplyFly.GroundOps
         private bool built;
         private const float ScaleCenterY = -28f;
 
-        private static readonly Color Accent = new Color(0.15f, 0.95f, 1f, 0.95f);
-        private static readonly Color Label = new Color(0.88f, 0.95f, 1f, 0.95f);
-        private static readonly Color Frame = new Color(0.015f, 0.035f, 0.055f, 0.86f);
+        private static readonly Color Accent = FlightHUDStyle.Cyan;
+        private static readonly Color Label = FlightHUDStyle.White;
+        private static readonly Color Frame = FlightHUDStyle.PrimaryPanel;
 
         public void Configure(float min, float max, float minor, int major,
             float spacing, string heading, string displayUnit, string valueFormat)
@@ -52,7 +52,7 @@ namespace SimplyFly.GroundOps
                 Mathf.Infinity, Time.unscaledDeltaTime);
             float clamped = Mathf.Clamp(displayedValue, minimum, maximum);
             float y = ScaleCenterY + clamped * pixelsPerUnit;
-            pointer.anchoredPosition = new Vector2(92f, y);
+            pointer.anchoredPosition = new Vector2(96f, y);
             valueBox.anchoredPosition = new Vector2(0f, y);
             valueLabel.text = displayedValue.ToString(format);
         }
@@ -65,13 +65,13 @@ namespace SimplyFly.GroundOps
             // Bottom-align with the engine and attitude instruments.
             host.anchorMin = host.anchorMax = new Vector2(1f, 0f);
             host.pivot = new Vector2(1f, 0f);
-            host.anchoredPosition = new Vector2(-18f, 20f);
+            host.anchoredPosition = new Vector2(-18f, FlightHUDStyle.BottomSafeMargin);
             Image oldPanel = host.GetComponent<Image>();
             if (oldPanel != null) oldPanel.enabled = false;
             for (int i = 0; i < host.childCount; i++) host.GetChild(i).gameObject.SetActive(false);
             float oldWidth = host.rect.width;
             float rightEdge = host.anchoredPosition.x + oldWidth * (1f - host.pivot.x);
-            host.sizeDelta = new Vector2(230f, 360f);
+            host.sizeDelta = new Vector2(226f, 360f);
             host.anchoredPosition = new Vector2(
                 rightEdge - host.sizeDelta.x * (1f - host.pivot.x),
                 host.anchoredPosition.y);
@@ -79,7 +79,7 @@ namespace SimplyFly.GroundOps
             RectTransform panel = Rect("VSI Panel", host);
             panel.anchorMin = new Vector2(0f, 0f); panel.anchorMax = new Vector2(0f, 1f);
             panel.pivot = new Vector2(0f, 0.5f); panel.sizeDelta = new Vector2(130f, 0f);
-            panel.anchoredPosition = new Vector2(100f, 0f);
+            panel.anchoredPosition = new Vector2(96f, 0f);
             panel.gameObject.AddComponent<Image>().color = Frame;
 
             TMP_Text heading = Text("Title", panel, 15f, FontStyles.Bold);
@@ -117,17 +117,17 @@ namespace SimplyFly.GroundOps
             RectTransform zero = Rect("Zero Reference", panel);
             zero.anchorMin = zero.anchorMax = new Vector2(0.5f, 0.5f);
             zero.anchoredPosition = new Vector2(0f, ScaleCenterY);
-            zero.sizeDelta = new Vector2(118f, 2f); zero.gameObject.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.3f);
+            zero.sizeDelta = new Vector2(118f, 3f); zero.gameObject.AddComponent<Image>().color = new Color(0.15f, 0.95f, 1f, 0.55f);
 
             pointer = Rect("VSI Pointer", host);
             pointer.anchorMin = pointer.anchorMax = new Vector2(0f, 0.5f);
-            pointer.pivot = new Vector2(0f, 0.5f); pointer.sizeDelta = new Vector2(18f, 3f);
+            pointer.pivot = new Vector2(0f, 0.5f); pointer.sizeDelta = new Vector2(16f, 3f);
             pointer.gameObject.AddComponent<Image>().color = Accent;
 
             valueBox = Rect("Current Vertical Speed", host);
             valueBox.anchorMin = valueBox.anchorMax = new Vector2(0f, 0.5f);
-            valueBox.pivot = new Vector2(0f, 0.5f); valueBox.sizeDelta = new Vector2(88f, 64f);
-            valueBox.gameObject.AddComponent<Image>().color = new Color(0.025f, 0.12f, 0.17f, 0.98f);
+            valueBox.pivot = new Vector2(0f, 0.5f); valueBox.sizeDelta = new Vector2(96f, 64f);
+            valueBox.gameObject.AddComponent<Image>().color = FlightHUDStyle.ValueBox;
             Outline outline = valueBox.gameObject.AddComponent<Outline>();
             outline.effectColor = Accent; outline.effectDistance = new Vector2(1f, -1f);
             valueLabel = Text("Value", valueBox, 26f, FontStyles.Bold);

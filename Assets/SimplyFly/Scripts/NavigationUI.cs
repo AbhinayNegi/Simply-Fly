@@ -68,6 +68,7 @@ namespace SimplyFly.GroundOps
              navigation.Phase == NavigationPhase.Completed);
 
         private VisualElement navPanel;
+        private Label navHeader;
         private Label routeLabel;
         private Label phaseLabel;
         private Label nextLabel;
@@ -211,7 +212,13 @@ namespace SimplyFly.GroundOps
             root.Clear();
             root.pickingMode = PickingMode.Ignore;
 
-            navPanel = MakePanel(root, 18f, 18f, 350f, 228f);
+            navPanel = MakePanel(root, 18f, 18f, 350f, 150f);
+            navHeader = AddLabel(navPanel, "FLIGHT PLAN", 15, true);
+            navHeader.style.color = new Color(0.88f, 0.95f, 1f);
+            navHeader.style.paddingBottom = 7f;
+            navHeader.style.borderBottomWidth = 1f;
+            navHeader.style.borderBottomColor =
+                new Color(0.48f, 0.68f, 0.72f, 0.35f);
             routeLabel = AddLabel(navPanel, "NO ACTIVE FLIGHT PLAN", 15, true);
             phaseLabel = AddLabel(navPanel, "NAV INACTIVE", 12, false);
             nextLabel = AddLabel(navPanel, "NEXT: --", 14, true);
@@ -310,6 +317,7 @@ namespace SimplyFly.GroundOps
 
             if (active)
             {
+                navPanel.style.height = 256f;
                 routeLabel.text =
                     navigation.RouteName.ToUpperInvariant() + "\n" +
                     $"{navigation.SelectedDepartureRunway} → " +
@@ -376,6 +384,7 @@ namespace SimplyFly.GroundOps
             }
             else if (freeFlight)
             {
+                navPanel.style.height = 150f;
                 routeLabel.text = "NO FLIGHT PLAN";
                 phaseLabel.text = "PRESS L TO OPEN FLIGHT PLANNER";
                 nextLabel.text = string.Empty;
@@ -653,11 +662,20 @@ namespace SimplyFly.GroundOps
             panel.style.paddingTop = 10f;
             panel.style.paddingBottom = 10f;
             panel.style.backgroundColor =
-                new Color(0.01f, 0.06f, 0.075f, 0.82f);
-            panel.style.borderTopLeftRadius = 7f;
-            panel.style.borderTopRightRadius = 7f;
-            panel.style.borderBottomLeftRadius = 7f;
-            panel.style.borderBottomRightRadius = 7f;
+                new Color(0.01f, 0.03f, 0.045f, 0.8f);
+            panel.style.borderTopLeftRadius = 10f;
+            panel.style.borderTopRightRadius = 10f;
+            panel.style.borderBottomLeftRadius = 10f;
+            panel.style.borderBottomRightRadius = 10f;
+            panel.style.borderLeftWidth = 1f;
+            panel.style.borderRightWidth = 1f;
+            panel.style.borderTopWidth = 1f;
+            panel.style.borderBottomWidth = 1f;
+            Color border = new Color(0.48f, 0.68f, 0.72f, 0.58f);
+            panel.style.borderLeftColor = border;
+            panel.style.borderRightColor = border;
+            panel.style.borderTopColor = border;
+            panel.style.borderBottomColor = border;
             root.Add(panel);
             return panel;
         }

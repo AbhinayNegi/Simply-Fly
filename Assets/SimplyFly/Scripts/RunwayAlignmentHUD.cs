@@ -155,10 +155,10 @@ namespace SimplyFly.GroundOps
                 new Vector2(145f, -3f), new Vector2(115f, 58f));
             leftArrow = Text("Left Guidance Arrow", root, 31f, FontStyles.Bold,
                 new Vector2(-205f, -2f), new Vector2(28f, 42f));
-            leftArrow.text = "◀";
+            leftArrow.text = "<<";
             rightArrow = Text("Right Guidance Arrow", root, 31f, FontStyles.Bold,
                 new Vector2(205f, -2f), new Vector2(28f, 42f));
-            rightArrow.text = "▶";
+            rightArrow.text = ">>";
 
             AddGuidanceLine("Runway Left", new Vector2(-31f, -15f),
                 new Vector2(2f, 59f), -36f);

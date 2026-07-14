@@ -29,8 +29,9 @@ namespace SimplyFly.GroundOps
         private void LateUpdate()
         {
             bool parking = brakes != null && brakes.ParkingBrakeEnabled;
-            bool braking = brakes != null &&
-                (brakes.BrakeInputActive || brakes.IsBraking) && !parking;
+            // Only explicit service-brake input should show BRAKING. Residual
+            // pressure while the parking brake releases is not pilot braking.
+            bool braking = brakes != null && brakes.BrakeInputActive && !parking;
             bool active = parking || braking;
 
             if (active)
@@ -48,7 +49,7 @@ namespace SimplyFly.GroundOps
                 else
                 {
                     group.alpha = 1f;
-                    label.color = parking ? Cyan : Amber;
+                    label.color = Amber;
                 }
                 return;
             }

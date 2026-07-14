@@ -23,16 +23,17 @@ namespace SimplyFly.GroundOps
         [SerializeField] private string valueFormat = "000";
         [SerializeField] private bool calloutOnLeft;
         [Header("Appearance")]
-        [SerializeField] private Color frameColor = new Color(0.015f, 0.035f, 0.055f, 0.86f);
-        [SerializeField] private Color accentColor = new Color(0.15f, 0.95f, 1f, 0.95f);
-        [SerializeField] private Color labelColor = new Color(0.88f, 0.95f, 1f);
-        [SerializeField] private Color valueBoxColor = new Color(0.025f, 0.12f, 0.17f, 0.98f);
+        [SerializeField] private Color frameColor = new Color(0.01f, 0.03f, 0.045f, 0.89f);
+        [SerializeField] private Color accentColor = new Color(0.15f, 0.95f, 1f, 0.98f);
+        [SerializeField] private Color labelColor = new Color(0.88f, 0.95f, 1f, 0.94f);
+        [SerializeField] private Color valueBoxColor = new Color(0.018f, 0.09f, 0.12f, 0.96f);
 
         private readonly List<TapeMark> marks = new List<TapeMark>();
         private readonly List<TapeBandView> bandViews = new List<TapeBandView>();
         private RectTransform content;
         private TMP_Text valueLabel;
         private TMP_Text warningLabel;
+        private GameObject warningIcon;
         private RectTransform trendLine;
         private float targetValue;
         private float displayedValue;
@@ -40,6 +41,9 @@ namespace SimplyFly.GroundOps
         private float displayedNumericValue;
         private float numericSmoothVelocity;
         private bool built;
+        private int mediumTickEvery;
+        private bool airspeedPresentation;
+        private bool altitudePresentation;
 
         public readonly struct RangeBand
         {
@@ -56,6 +60,9 @@ namespace SimplyFly.GroundOps
         {
             public RectTransform Rect;
             public RectTransform Tick;
+            public Image TickImage;
+            public RectTransform OppositeTick;
+            public Image OppositeTickImage;
             public TMP_Text Label;
         }
 
@@ -86,6 +93,22 @@ namespace SimplyFly.GroundOps
             calloutOnLeft = placeCalloutOnLeft;
         }
 
+        public void ConfigureAirspeedPresentation()
+        {
+            if (built) return;
+            airspeedPresentation = true;
+            mediumTickEvery = 5;
+            visibleMinorSteps = 72;
+        }
+
+        public void ConfigureAltitudePresentation()
+        {
+            if (built) return;
+            altitudePresentation = true;
+            mediumTickEvery = 5;
+            visibleMinorSteps = 72;
+        }
+
         public void SetRangeBands(params RangeBand[] bands)
         {
             if (!built) Build();
@@ -97,8 +120,9 @@ namespace SimplyFly.GroundOps
             {
                 GameObject go = CreateUI("Speed Range", content);
                 RectTransform rect = (RectTransform)go.transform;
-                rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
-                rect.pivot = new Vector2(0f, 0.5f);
+                rect.anchorMin = rect.anchorMax = new Vector2(
+                    altitudePresentation ? 1f : 0f, 0.5f);
+                rect.pivot = new Vector2(altitudePresentation ? 1f : 0f, 0.5f);
                 go.AddComponent<Image>().color = band.Color;
                 bandViews.Add(new TapeBandView { Band = band, Rect = rect });
             }
@@ -109,7 +133,9 @@ namespace SimplyFly.GroundOps
             if (!built) Build();
             warningLabel.text = warning ?? string.Empty;
             warningLabel.color = color;
-            warningLabel.gameObject.SetActive(!string.IsNullOrEmpty(warning));
+            bool visible = !string.IsNullOrEmpty(warning);
+            warningLabel.gameObject.SetActive(visible);
+            if (warningIcon != null) warningIcon.SetActive(visible);
         }
 
         public void SetTrend(float predictedDelta, bool visible)
@@ -172,22 +198,40 @@ namespace SimplyFly.GroundOps
             frameRect.anchoredPosition = new Vector2(calloutOnLeft ? 100f : 0f, 0f);
             frameRect.sizeDelta = new Vector2(140f, 0f);
             Image frameImage = frame.AddComponent<Image>();
-            frameImage.color = frameColor;
+            frameImage.color = FlightHUDStyle.PrimaryPanel;
+            FlightHUDStyle.AddOutline(frame);
 
             TMP_Text titleLabel = CreateText("Title", frameRect, 18f, FontStyles.Bold);
             titleLabel.text = title;
             titleLabel.alignment = TextAlignmentOptions.Center;
-            titleLabel.color = new Color(0.55f, 0.9f, 1f);
+            bool polishedTape = airspeedPresentation || altitudePresentation;
+            titleLabel.color = polishedTape
+                ? FlightHUDStyle.White
+                : new Color(0.55f, 0.9f, 1f);
             SetRect(titleLabel.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(150f, 28f));
+
+            if (polishedTape)
+            {
+                TMP_Text headerUnit = CreateText("Header Unit", frameRect, 14f, FontStyles.Normal);
+                headerUnit.text = unit;
+                headerUnit.alignment = TextAlignmentOptions.Center;
+                headerUnit.color = FlightHUDStyle.Cyan;
+                SetRect(headerUnit.rectTransform, new Vector2(0.5f, 1f),
+                    new Vector2(0f, -40f), new Vector2(80f, 20f));
+                RectTransform headerDivider = (RectTransform)CreateUI("Header Divider", frameRect).transform;
+                SetRect(headerDivider, new Vector2(0.5f, 1f),
+                    new Vector2(0f, -57f), new Vector2(118f, 1f));
+                headerDivider.gameObject.AddComponent<Image>().color = FlightHUDStyle.Divider;
+            }
 
             GameObject viewport = CreateUI("Viewport", frameRect);
             RectTransform viewportRect = (RectTransform)viewport.transform;
             viewportRect.anchorMin = new Vector2(0f, 0f);
             viewportRect.anchorMax = new Vector2(1f, 1f);
             viewportRect.offsetMin = new Vector2(8f, 36f);
-            viewportRect.offsetMax = new Vector2(-8f, -42f);
+            viewportRect.offsetMax = new Vector2(-8f, polishedTape ? -62f : -42f);
             Image viewportImage = viewport.AddComponent<Image>();
-            viewportImage.color = new Color(0f, 0f, 0f, 0.18f);
+            viewportImage.color = new Color(0f, 0f, 0f, 0.25f);
             viewport.AddComponent<RectMask2D>();
 
             GameObject contentObject = CreateUI("Scrolling Content", viewportRect);
@@ -208,11 +252,43 @@ namespace SimplyFly.GroundOps
                 Image tickImage = tickObject.AddComponent<Image>();
                 tickImage.color = labelColor;
 
+                RectTransform oppositeTick = null;
+                Image oppositeTickImage = null;
+                if (altitudePresentation)
+                {
+                    GameObject oppositeTickObject = CreateUI("Opposite Tick", markRect);
+                    oppositeTick = (RectTransform)oppositeTickObject.transform;
+                    oppositeTick.anchorMin = oppositeTick.anchorMax = new Vector2(0f, 0.5f);
+                    oppositeTick.pivot = new Vector2(0f, 0.5f);
+                    oppositeTickImage = oppositeTickObject.AddComponent<Image>();
+                    oppositeTickImage.color = labelColor;
+                }
+
                 TMP_Text label = CreateText("Label", markRect, 19f, FontStyles.Normal);
                 label.alignment = TextAlignmentOptions.MidlineRight;
                 label.color = labelColor;
                 SetRect(label.rectTransform, new Vector2(0f, 0.5f), new Vector2(42f, 0f), new Vector2(72f, 25f));
-                marks.Add(new TapeMark { Rect = markRect, Tick = tickRect, Label = label });
+                marks.Add(new TapeMark
+                {
+                    Rect = markRect,
+                    Tick = tickRect,
+                    TickImage = tickImage,
+                    OppositeTick = oppositeTick,
+                    OppositeTickImage = oppositeTickImage,
+                    Label = label
+                });
+            }
+
+            if (altitudePresentation)
+            {
+                GameObject rangeTrack = CreateUI("Operating Range Track", viewportRect);
+                RectTransform rangeTrackRect = (RectTransform)rangeTrack.transform;
+                rangeTrackRect.anchorMin = new Vector2(1f, 0f);
+                rangeTrackRect.anchorMax = new Vector2(1f, 1f);
+                rangeTrackRect.pivot = new Vector2(1f, 0.5f);
+                rangeTrackRect.anchoredPosition = new Vector2(-2f, 0f);
+                rangeTrackRect.sizeDelta = new Vector2(7f, 0f);
+                rangeTrack.AddComponent<Image>().color = new Color(0.23f, 0.3f, 0.33f, 0.55f);
             }
 
             GameObject centerLine = CreateUI("Center Marker", host);
@@ -222,6 +298,32 @@ namespace SimplyFly.GroundOps
             centerRect.anchoredPosition = new Vector2(calloutOnLeft ? 92f : 136f, 0f);
             centerRect.sizeDelta = new Vector2(calloutOnLeft ? 12f : 18f, 3f);
             centerLine.AddComponent<Image>().color = accentColor;
+            if (airspeedPresentation)
+            {
+                RectTransform pointer = (RectTransform)CreateUI("IAS Marker Pointer", host).transform;
+                pointer.anchorMin = pointer.anchorMax = new Vector2(0f, 0.5f);
+                pointer.pivot = new Vector2(0.5f, 0.5f);
+                pointer.anchoredPosition = new Vector2(145f, 0f);
+                pointer.sizeDelta = new Vector2(12f, 18f);
+                TapeTriangleGraphic triangle = pointer.gameObject.AddComponent<TapeTriangleGraphic>();
+                triangle.PointsRight = true;
+                triangle.color = accentColor;
+                triangle.raycastTarget = false;
+            }
+            else if (altitudePresentation)
+            {
+                RectTransform pointer = (RectTransform)CreateUI("Altitude Marker Pointer", host).transform;
+                pointer.anchorMin = pointer.anchorMax = new Vector2(0f, 0.5f);
+                pointer.pivot = new Vector2(0.5f, 0.5f);
+                pointer.anchoredPosition = new Vector2(105f, 0f);
+                pointer.sizeDelta = new Vector2(14f, 20f);
+                TapeTriangleGraphic triangle = pointer.gameObject.AddComponent<TapeTriangleGraphic>();
+                triangle.PointsRight = true;
+                triangle.color = accentColor;
+                triangle.raycastTarget = false;
+                centerRect.anchoredPosition = new Vector2(102f, 0f);
+                centerRect.sizeDelta = new Vector2(44f, 3f);
+            }
 
             GameObject trendObject = CreateUI("Speed Trend", viewportRect);
             trendLine = (RectTransform)trendObject.transform;
@@ -234,8 +336,11 @@ namespace SimplyFly.GroundOps
             RectTransform valueRect = (RectTransform)valueBox.transform;
             valueRect.anchorMin = valueRect.anchorMax = new Vector2(0f, 0.5f);
             valueRect.pivot = new Vector2(0f, 0.5f);
-            valueRect.anchoredPosition = new Vector2(calloutOnLeft ? 0f : 150f, 0f);
-            valueRect.sizeDelta = new Vector2(calloutOnLeft ? 94f : 92f, 64f);
+            valueRect.anchoredPosition = new Vector2(
+                altitudePresentation ? -18f : calloutOnLeft ? 0f : 150f, 0f);
+            valueRect.sizeDelta = altitudePresentation
+                ? new Vector2(108f, 76f)
+                : new Vector2(102f, 68f);
             valueBox.AddComponent<Image>().color = valueBoxColor;
             Outline valueOutline = valueBox.AddComponent<Outline>();
             valueOutline.effectColor = new Color(accentColor.r, accentColor.g, accentColor.b, 0.9f);
@@ -262,7 +367,31 @@ namespace SimplyFly.GroundOps
 
             warningLabel = CreateText("Tape Warning", frameRect, 14f, FontStyles.Bold);
             warningLabel.alignment = TextAlignmentOptions.Center;
-            SetRect(warningLabel.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 45f), new Vector2(156f, 24f));
+            SetRect(warningLabel.rectTransform, new Vector2(0.5f, 0f),
+                new Vector2(airspeedPresentation ? 12f : 0f, 45f),
+                new Vector2(airspeedPresentation ? 112f : 156f, 24f));
+            if (airspeedPresentation)
+            {
+                RectTransform footerDivider = (RectTransform)CreateUI("Warning Divider", frameRect).transform;
+                SetRect(footerDivider, new Vector2(0.5f, 0f),
+                    new Vector2(0f, 70f), new Vector2(118f, 1f));
+                footerDivider.gameObject.AddComponent<Image>().color = FlightHUDStyle.Divider;
+                warningIcon = CreateUI("Warning Icon", frameRect);
+                RectTransform warningIconRect = (RectTransform)warningIcon.transform;
+                warningIconRect.anchorMin = warningIconRect.anchorMax = new Vector2(0.5f, 0f);
+                warningIconRect.anchoredPosition = new Vector2(-50f, 47f);
+                warningIconRect.sizeDelta = new Vector2(18f, 16f);
+                TapeTriangleGraphic warningTriangle =
+                    warningIcon.AddComponent<TapeTriangleGraphic>();
+                warningTriangle.color = new Color(1f, 0.66f, 0.08f, 0.98f);
+                warningTriangle.raycastTarget = false;
+                TMP_Text exclamation = CreateText("Warning Mark", warningIcon.transform, 11f, FontStyles.Bold);
+                exclamation.text = "!";
+                exclamation.color = new Color(0.08f, 0.06f, 0.01f, 1f);
+                exclamation.alignment = TextAlignmentOptions.Center;
+                Stretch(exclamation.rectTransform);
+                warningIcon.SetActive(false);
+            }
             warningLabel.gameObject.SetActive(false);
             RefreshMarks();
         }
@@ -285,10 +414,31 @@ namespace SimplyFly.GroundOps
                 mark.Rect.anchoredPosition = new Vector2(0f,
                     ((i - half) - fraction) * pixelsPerMinorStep);
                 bool major = Mod(index, majorEvery) == 0;
-                mark.Tick.sizeDelta = new Vector2(major ? 32f : 17f, major ? 2.5f : 1.5f);
+                bool medium = !major && mediumTickEvery > 0 &&
+                              Mod(index, mediumTickEvery) == 0;
+                mark.Tick.sizeDelta = new Vector2(
+                    major ? 32f : medium ? 24f : 13f,
+                    major ? 2.5f : medium ? 2f : 1.25f);
                 mark.Tick.anchoredPosition = new Vector2(-2f, 0f);
+                if (mark.OppositeTick != null)
+                {
+                    mark.OppositeTick.sizeDelta = new Vector2(
+                        major ? 32f : medium ? 24f : 13f,
+                        major ? 2.5f : medium ? 2f : 1.25f);
+                    mark.OppositeTick.anchoredPosition = new Vector2(2f, 0f);
+                }
                 mark.Label.gameObject.SetActive(major);
                 if (major) mark.Label.text = Mathf.RoundToInt(value).ToString("000");
+                if (altitudePresentation)
+                {
+                    float distance = Mathf.Abs(mark.Rect.anchoredPosition.y);
+                    float alpha = Mathf.Lerp(0.38f, 1f, 1f - Mathf.Clamp01(distance / 170f));
+                    Color faded = labelColor;
+                    faded.a *= alpha;
+                    mark.Label.color = faded;
+                    mark.TickImage.color = faded;
+                    if (mark.OppositeTickImage != null) mark.OppositeTickImage.color = faded;
+                }
             }
 
             float pixelsPerUnit = pixelsPerMinorStep / minorStep;
@@ -297,7 +447,9 @@ namespace SimplyFly.GroundOps
                 float start = Mathf.Max(minimumValue, view.Band.Start);
                 float end = Mathf.Max(start, view.Band.End);
                 float midpoint = (start + end) * 0.5f;
-                view.Rect.anchoredPosition = new Vector2(2f, (midpoint - displayedValue) * pixelsPerUnit);
+                view.Rect.anchoredPosition = new Vector2(
+                    altitudePresentation ? -2f : 2f,
+                    (midpoint - displayedValue) * pixelsPerUnit);
                 view.Rect.sizeDelta = new Vector2(7f, Mathf.Max(3f, (end - start) * pixelsPerUnit));
             }
         }
@@ -324,6 +476,35 @@ namespace SimplyFly.GroundOps
         {
             rect.anchorMin = rect.anchorMax = anchor;
             rect.anchoredPosition = position; rect.sizeDelta = size;
+        }
+    }
+
+    internal sealed class TapeTriangleGraphic : MaskableGraphic
+    {
+        public bool PointsRight { get; set; }
+
+        protected override void OnPopulateMesh(VertexHelper vh)
+        {
+            vh.Clear();
+            Rect rect = rectTransform.rect;
+            Color32 c = color;
+            if (PointsRight)
+            {
+                vh.AddVert(new Vector3(rect.width * 0.5f, 0f), c, Vector2.zero);
+                vh.AddVert(new Vector3(-rect.width * 0.5f, rect.height * 0.5f),
+                    c, Vector2.zero);
+                vh.AddVert(new Vector3(-rect.width * 0.5f, -rect.height * 0.5f),
+                    c, Vector2.zero);
+            }
+            else
+            {
+                vh.AddVert(new Vector3(0f, rect.height * 0.5f), c, Vector2.zero);
+                vh.AddVert(new Vector3(-rect.width * 0.5f, -rect.height * 0.5f),
+                    c, Vector2.zero);
+                vh.AddVert(new Vector3(rect.width * 0.5f, -rect.height * 0.5f),
+                    c, Vector2.zero);
+            }
+            vh.AddTriangle(0, 1, 2);
         }
     }
 }

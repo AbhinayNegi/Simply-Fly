@@ -39,12 +39,12 @@ namespace SimplyFly.GroundOps
         private bool stateChanging;
         private bool built;
 
-        private static readonly Color Cyan = new(0.15f, 0.95f, 1f, 0.98f);
-        private static readonly Color White = new(0.88f, 0.95f, 1f, 0.92f);
-        private static readonly Color Muted = new(0.62f, 0.7f, 0.73f, 0.86f);
-        private static readonly Color Green = new(0.28f, 0.92f, 0.12f, 0.98f);
-        private static readonly Color Amber = new(1f, 0.65f, 0.06f, 0.98f);
-        private static readonly Color Red = new(1f, 0.16f, 0.12f, 0.98f);
+        private static readonly Color Cyan = FlightHUDStyle.Cyan;
+        private static readonly Color White = FlightHUDStyle.White;
+        private static readonly Color Muted = FlightHUDStyle.Muted;
+        private static readonly Color Green = FlightHUDStyle.Green;
+        private static readonly Color Amber = FlightHUDStyle.Amber;
+        private static readonly Color Red = FlightHUDStyle.Red;
         private static readonly Color Empty = new(0.16f, 0.21f, 0.23f, 0.78f);
 
         public void SetData(float throttlePosition, float rpm,
@@ -105,15 +105,16 @@ namespace SimplyFly.GroundOps
             if (legacyPanel != null) legacyPanel.enabled = false;
             for (int i = 0; i < host.childCount; i++)
                 host.GetChild(i).gameObject.SetActive(false);
+            if (host.anchorMin.y <= 0.01f && host.anchorMax.y <= 0.01f)
+                host.anchoredPosition = new Vector2(
+                    host.anchoredPosition.x,
+                    Mathf.Max(host.anchoredPosition.y, FlightHUDStyle.BottomSafeMargin));
             host.sizeDelta = new Vector2(230f, 270f);
 
             RectTransform panel = Rect("Engine Panel", host);
             Stretch(panel);
-            panel.gameObject.AddComponent<Image>().color =
-                new Color(0.01f, 0.035f, 0.05f, 0.82f);
-            Outline outline = panel.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0.5f, 0.72f, 0.76f, 0.52f);
-            outline.effectDistance = new Vector2(1f, -1f);
+            panel.gameObject.AddComponent<Image>().color = FlightHUDStyle.SecondaryPanel;
+            FlightHUDStyle.AddOutline(panel.gameObject);
 
             TMP_Text title = Text("Title", panel, 18f, FontStyles.Bold,
                 new Vector2(-14f, 122f), new Vector2(150f, 24f));

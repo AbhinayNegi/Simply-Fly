@@ -192,15 +192,15 @@ namespace SimplyFly.GroundOps
             container.anchorMin = container.anchorMax = new Vector2(0.5f, 0f);
             container.pivot = new Vector2(1f, 0f);
             // Mini attitude is 220 px wide; keep a 45 px visual gutter.
-            container.anchoredPosition = new Vector2(-155f, 20f);
+            container.anchoredPosition = new Vector2(-155f, FlightHUDStyle.BottomSafeMargin);
             container.sizeDelta = new Vector2(220f, 58f);
 
             Image background = container.GetComponent<Image>();
             if (background != null)
-                background.color = new Color(0.01f, 0.035f, 0.05f, 0.68f);
+                background.color = FlightHUDStyle.SecondaryPanel;
             Outline outline = container.GetComponent<Outline>();
             if (outline == null) outline = container.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0.5f, 0.72f, 0.76f, 0.5f);
+            outline.effectColor = FlightHUDStyle.Border;
             outline.effectDistance = new Vector2(1f, -1f);
 
             labelRect.anchorMin = Vector2.zero;

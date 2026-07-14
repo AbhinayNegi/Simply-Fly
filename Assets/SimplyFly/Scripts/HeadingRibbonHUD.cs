@@ -16,6 +16,7 @@ namespace SimplyFly.GroundOps
         private readonly List<HeadingMark> marks = new List<HeadingMark>();
         private RectTransform viewport;
         private TMP_Text currentHeadingLabel;
+        private TMP_Text headingCaption;
         private RectTransform courseMarker;
         private TMP_Text courseLabel;
         private TMP_Text leftCourseArrow;
@@ -122,16 +123,26 @@ namespace SimplyFly.GroundOps
             RectTransform valueBox = CreateRect("Current Heading", host);
             valueBox.anchorMin = valueBox.anchorMax = new Vector2(0.5f, 0f);
             valueBox.pivot = new Vector2(0.5f, 0f);
-            valueBox.anchoredPosition = new Vector2(0f, 70f);
-            valueBox.sizeDelta = new Vector2(112f, 52f);
-            valueBox.gameObject.AddComponent<Image>().color = new Color(0.025f, 0.12f, 0.17f, 0.94f);
+            valueBox.anchoredPosition = new Vector2(0f, 64f);
+            valueBox.sizeDelta = new Vector2(112f, 58f);
+            valueBox.gameObject.AddComponent<Image>().color = FlightHUDStyle.ValueBox;
             Outline outline = valueBox.gameObject.AddComponent<Outline>();
             outline.effectColor = new Color(0.15f, 0.95f, 1f, 0.95f);
             outline.effectDistance = new Vector2(1f, -1f);
             currentHeadingLabel = CreateText("Value", valueBox, 29f, FontStyles.Bold);
             currentHeadingLabel.alignment = TextAlignmentOptions.Center;
-            currentHeadingLabel.color = new Color(0.2f, 1f, 1f);
+            currentHeadingLabel.color = FlightHUDStyle.Cyan;
             Stretch(currentHeadingLabel.rectTransform);
+            currentHeadingLabel.rectTransform.offsetMax = new Vector2(0f, -12f);
+            headingCaption = CreateText("Heading Caption", valueBox, 10f, FontStyles.Normal);
+            headingCaption.text = "HDG";
+            headingCaption.color = FlightHUDStyle.Muted;
+            headingCaption.alignment = TextAlignmentOptions.Center;
+            headingCaption.rectTransform.anchorMin = new Vector2(0f, 1f);
+            headingCaption.rectTransform.anchorMax = new Vector2(1f, 1f);
+            headingCaption.rectTransform.pivot = new Vector2(0.5f, 1f);
+            headingCaption.rectTransform.anchoredPosition = new Vector2(0f, -2f);
+            headingCaption.rectTransform.sizeDelta = new Vector2(0f, 14f);
 
             Color magenta = new Color(1f, 0.08f, 0.78f, 1f);
             courseMarker = CreateRect("Course Marker", viewport);

@@ -22,11 +22,13 @@ namespace SimplyFly.GroundOps
             RectTransform host = (RectTransform)transform;
             host.anchorMin = host.anchorMax = new Vector2(1f, 0.5f);
             host.pivot = new Vector2(1f, 0.5f);
-            // Reserve the top-right band for the wind card.
-            host.anchoredPosition = new Vector2(-18f, 100f);
+            // Match the airspeed tape's vertical alignment and height while
+            // retaining the right-side safe margin.
+            host.anchoredPosition = new Vector2(-18f, 70f);
             if (tape == null) tape = GetComponent<NumericTapeHUD>();
             if (tape == null) tape = gameObject.AddComponent<NumericTapeHUD>();
-            tape.ConfigureScale(100f, 1, 30f, "ALTITUDE", "FT", "00000", 0f, true);
+            tape.ConfigureAltitudePresentation();
+            tape.ConfigureScale(10f, 10, 5f, "ALTITUDE", "FT", "00000", 0f, true);
             if (flightPhysics == null) flightPhysics = FindAnyObjectByType<FlightPhysicsController>();
             if (approach == null) approach = FindAnyObjectByType<ApproachGuidanceController>();
         }

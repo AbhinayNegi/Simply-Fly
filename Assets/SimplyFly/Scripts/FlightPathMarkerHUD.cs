@@ -25,7 +25,7 @@ namespace SimplyFly.GroundOps
         private bool initialized;
         private bool settingEnabled;
 
-        private static readonly Color Cyan = new Color(0.12f, 0.95f, 1f, 0.78f);
+        private static readonly Color Cyan = new Color(0.12f, 0.95f, 1f, 0.68f);
 
         public void Bind(FlightPhysicsController source)
         {

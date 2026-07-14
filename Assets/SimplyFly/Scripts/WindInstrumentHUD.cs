@@ -33,11 +33,11 @@ namespace SimplyFly.GroundOps
         private float fromHeadingVelocity;
         private bool angleInitialized;
 
-        private static readonly Color Cyan = new(0.15f, 0.95f, 1f, 0.98f);
-        private static readonly Color White = new(0.9f, 0.96f, 1f, 0.94f);
-        private static readonly Color Green = new(0.25f, 1f, 0.38f, 0.98f);
-        private static readonly Color Amber = new(1f, 0.64f, 0.05f, 0.98f);
-        private static readonly Color Red = new(1f, 0.18f, 0.16f, 0.98f);
+        private static readonly Color Cyan = FlightHUDStyle.Cyan;
+        private static readonly Color White = FlightHUDStyle.White;
+        private static readonly Color Green = FlightHUDStyle.Green;
+        private static readonly Color Amber = FlightHUDStyle.Amber;
+        private static readonly Color Red = FlightHUDStyle.Red;
 
         public void Bind(WindController source, FlightPhysicsController plane)
         {
@@ -119,10 +119,8 @@ namespace SimplyFly.GroundOps
             host.sizeDelta = new Vector2(176f, 174f);
 
             Image panel = gameObject.AddComponent<Image>();
-            panel.color = new Color(0.01f, 0.035f, 0.06f, 0.66f);
-            Outline outline = gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0.3f, 0.82f, 0.9f, 0.55f);
-            outline.effectDistance = new Vector2(1f, -1f);
+            panel.color = FlightHUDStyle.SecondaryPanel;
+            FlightHUDStyle.AddOutline(gameObject);
 
             TMP_Text title = MakeText("Title", 14f, FontStyles.Bold,
                 new Vector2(8f, -8f), new Vector2(160f, 20f));
