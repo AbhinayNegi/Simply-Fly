@@ -46,6 +46,12 @@ namespace SimplyFly.GroundOps
         public float StallSpeedReduction { get; private set; }
         public bool SpeedWarning { get; private set; }
         public float MaxExtensionSpeed => maxFlapExtensionSpeed;
+        public int PositionCount => flapPositions?.Length ?? 0;
+
+        public float GetPositionAngle(int index) =>
+            flapPositions == null || flapPositions.Length == 0
+                ? 0f
+                : flapPositions[Mathf.Clamp(index, 0, flapPositions.Length - 1)];
 
         private Rigidbody body;
         private float previousAngle;

@@ -11,16 +11,21 @@ namespace SimplyFly.GroundOps
     public sealed class EngineInstrumentHUD : MonoBehaviour
     {
         [Min(0.01f)] [SerializeField] private float valueSmoothing = 0.16f;
+        [Min(0.01f)] [SerializeField] private float throttleSmoothing = 0.06f;
         [Min(0.1f)] [SerializeField] private float statusFadeSpeed = 4f;
 
         private RectTransform barFill;
         private TMP_Text outputLabel;
+        private TMP_Text throttleLabel;
         private TMP_Text rpmLabel;
         private TMP_Text statusLabel;
         private CanvasGroup statusGroup;
         private float targetOutput;
         private float displayedOutput;
         private float outputVelocity;
+        private float targetThrottle;
+        private float displayedThrottle;
+        private float throttleVelocity;
         private float targetRpm;
         private float displayedRpm;
         private float rpmVelocity;
@@ -36,11 +41,12 @@ namespace SimplyFly.GroundOps
         private static readonly Color Amber = new Color(1f, 0.68f, 0.08f, 0.98f);
         private static readonly Color Red = new Color(1f, 0.16f, 0.12f, 0.98f);
 
-        public void SetData(float normalizedOutput, float rpm,
+        public void SetData(float normalizedOutput, float throttlePosition, float rpm,
             EngineInstrumentState state)
         {
             if (!built) Build();
             targetOutput = Mathf.Clamp01(normalizedOutput);
+            targetThrottle = Mathf.Clamp01(throttlePosition);
             targetRpm = Mathf.Max(0f, rpm);
             if (state != displayedState &&
                 (!stateChanging || state != pendingState))
@@ -59,7 +65,11 @@ namespace SimplyFly.GroundOps
             displayedRpm = Mathf.SmoothDamp(
                 displayedRpm, targetRpm, ref rpmVelocity,
                 valueSmoothing, Mathf.Infinity, Time.unscaledDeltaTime);
+            displayedThrottle = Mathf.SmoothDamp(
+                displayedThrottle, targetThrottle, ref throttleVelocity,
+                throttleSmoothing, Mathf.Infinity, Time.unscaledDeltaTime);
             outputLabel.text = $"{displayedOutput * 100f:0}%";
+            throttleLabel.text = $"{displayedThrottle * 100f:0}%";
             rpmLabel.text = $"{displayedRpm:0000}";
             barFill.sizeDelta = new Vector2(
                 BarWidth * Mathf.Clamp01(displayedOutput), 10f);
@@ -92,7 +102,7 @@ namespace SimplyFly.GroundOps
             if (legacyPanel != null) legacyPanel.enabled = false;
             for (int i = 0; i < host.childCount; i++)
                 host.GetChild(i).gameObject.SetActive(false);
-            host.sizeDelta = new Vector2(210f, 190f);
+            host.sizeDelta = new Vector2(210f, 220f);
 
             RectTransform panel = Rect("Engine Panel", host);
             Stretch(panel);
@@ -103,17 +113,17 @@ namespace SimplyFly.GroundOps
             outline.effectDistance = new Vector2(1f, -1f);
 
             TMP_Text title = Text("Title", panel, 17f, FontStyles.Bold,
-                new Vector2(0f, 76f), new Vector2(190f, 24f));
+                new Vector2(0f, 95f), new Vector2(190f, 24f));
             title.text = "ENGINE"; title.color = White;
             outputLabel = Text("Output", panel, 32f, FontStyles.Normal,
-                new Vector2(0f, 43f), new Vector2(180f, 38f));
+                new Vector2(0f, 66f), new Vector2(180f, 34f));
             outputLabel.color = Cyan;
             TMP_Text powerCaption = Text("Power Label", panel, 12f,
-                FontStyles.Normal, new Vector2(0f, 20f), new Vector2(100f, 18f));
+                FontStyles.Normal, new Vector2(0f, 44f), new Vector2(130f, 18f));
             powerCaption.text = "ENGINE OUTPUT"; powerCaption.color = White;
 
             RectTransform barTrack = Rect("Power Bar Track", panel);
-            Place(barTrack, new Vector2(-BarWidth * 0.5f, -1f),
+            Place(barTrack, new Vector2(-BarWidth * 0.5f, 27f),
                 new Vector2(BarWidth, 10f));
             barTrack.gameObject.AddComponent<Image>().color =
                 new Color(0.2f, 0.25f, 0.27f, 0.75f);
@@ -124,19 +134,26 @@ namespace SimplyFly.GroundOps
             barFill.sizeDelta = new Vector2(0f, 10f);
             barFill.gameObject.AddComponent<Image>().color = Green;
 
+            TMP_Text throttleCaption = Text("Throttle Label", panel, 12f,
+                FontStyles.Normal, new Vector2(-38f, 7f), new Vector2(90f, 18f));
+            throttleCaption.text = "THROTTLE"; throttleCaption.color = White;
+            throttleLabel = Text("Throttle", panel, 20f, FontStyles.Normal,
+                new Vector2(49f, 7f), new Vector2(82f, 24f));
+            throttleLabel.color = Cyan;
+
             TMP_Text rpmCaption = Text("RPM Label", panel, 12f,
-                FontStyles.Normal, new Vector2(0f, -29f), new Vector2(80f, 18f));
+                FontStyles.Normal, new Vector2(0f, -25f), new Vector2(80f, 18f));
             rpmCaption.text = "RPM"; rpmCaption.color = White;
             rpmLabel = Text("RPM", panel, 25f, FontStyles.Normal,
-                new Vector2(0f, -50f), new Vector2(130f, 31f));
+                new Vector2(0f, -47f), new Vector2(130f, 31f));
             rpmLabel.color = Cyan;
 
             RectTransform divider = Rect("Divider", panel);
-            Place(divider, new Vector2(-87f, -69f), new Vector2(174f, 1f));
+            Place(divider, new Vector2(-87f, -70f), new Vector2(174f, 1f));
             divider.gameObject.AddComponent<Image>().color =
                 new Color(0.65f, 0.78f, 0.8f, 0.35f);
             statusLabel = Text("Status", panel, 14f, FontStyles.Bold,
-                new Vector2(0f, -82f), new Vector2(170f, 22f));
+                new Vector2(0f, -88f), new Vector2(170f, 22f));
             statusGroup = statusLabel.gameObject.AddComponent<CanvasGroup>();
             displayedState = EngineInstrumentState.Off;
             pendingState = displayedState;

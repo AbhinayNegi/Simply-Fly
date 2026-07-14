@@ -17,6 +17,7 @@ namespace SimplyFly.GroundOps
         public bool IsBraking => BrakeAmount > 0.05f;
         public float BrakeForce => brakeStrength * BrakeAmount;
         public bool ParkingBrakeEnabled { get; private set; }
+        public bool BrakeInputActive { get; private set; }
         private bool brakeWasHeld;
 
         private void Awake()
@@ -29,6 +30,7 @@ namespace SimplyFly.GroundOps
         private void Update()
         {
             bool brakeHeld = input != null && input.BrakeHeld;
+            BrakeInputActive = brakeHeld;
             if (ParkingBrakeEnabled && brakeHeld && !brakeWasHeld)
                 ParkingBrakeEnabled = false;
             float target = ParkingBrakeEnabled || brakeHeld ? 1f : 0f;
@@ -41,6 +43,7 @@ namespace SimplyFly.GroundOps
         {
             BrakeAmount = 0f;
             ParkingBrakeEnabled = false;
+            BrakeInputActive = false;
             brakeWasHeld = input != null && input.BrakeHeld;
         }
 

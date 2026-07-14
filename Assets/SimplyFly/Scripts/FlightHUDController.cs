@@ -20,6 +20,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private LandingController landing;
         [SerializeField] private PilotAwarenessAssist awarenessAssist;
         [SerializeField] private WindController wind;
+        [SerializeField] private BrakeController brakes;
         [SerializeField] private UIController debugUI;
 
         [Header("HUD views")]
@@ -32,6 +33,9 @@ namespace SimplyFly.GroundOps
         [SerializeField] private VerticalSpeedIndicatorHUD verticalSpeedIndicator;
         [SerializeField] private FlightHUDInstrument headingInstrument;
         [SerializeField] private HeadingRibbonController headingRibbon;
+        [SerializeField] private WindInstrumentHUD windInstrument;
+        [SerializeField] private FlapsInstrumentHUD flapsInstrument;
+        [SerializeField] private BrakeStatusHUD brakeStatus;
         [SerializeField] private FlightPathMarkerHUD flightPathMarker;
         [SerializeField] private RunwayAlignmentHUD runwayAlignment;
         [SerializeField] private FlightHUDInstrument powerInstrument;
@@ -72,6 +76,9 @@ namespace SimplyFly.GroundOps
             EnsureAltitudeTape();
             EnsureVerticalSpeedIndicator();
             EnsureHeadingRibbon();
+            EnsureWindInstrument();
+            EnsureFlapsInstrument();
+            EnsureBrakeStatus();
             EnsureFlightPathMarker();
             EnsureRunwayAlignment();
             EnsureEngineInstrument();
@@ -91,6 +98,47 @@ namespace SimplyFly.GroundOps
             if (headingRibbon == null && headingInstrument != null)
                 headingRibbon = headingInstrument.gameObject.AddComponent<HeadingRibbonController>();
             headingRibbon?.Bind(flightPhysics);
+        }
+
+        private void EnsureWindInstrument()
+        {
+            if (wind == null) wind = FindAnyObjectByType<WindController>();
+            if (windInstrument == null)
+                windInstrument = GetComponentInChildren<WindInstrumentHUD>(true);
+            if (windInstrument == null)
+            {
+                GameObject go = new("Wind Instrument", typeof(RectTransform));
+                go.transform.SetParent(transform, false);
+                windInstrument = go.AddComponent<WindInstrumentHUD>();
+            }
+            windInstrument.Bind(wind, flightPhysics);
+        }
+
+        private void EnsureFlapsInstrument()
+        {
+            if (flapsInstrument == null)
+                flapsInstrument = GetComponentInChildren<FlapsInstrumentHUD>(true);
+            if (flapsInstrument == null)
+            {
+                GameObject go = new("Flaps Instrument", typeof(RectTransform));
+                go.transform.SetParent(transform, false);
+                flapsInstrument = go.AddComponent<FlapsInstrumentHUD>();
+            }
+            flapsInstrument.Bind(flaps);
+        }
+
+        private void EnsureBrakeStatus()
+        {
+            if (brakes == null) brakes = FindAnyObjectByType<BrakeController>();
+            if (brakeStatus == null)
+                brakeStatus = GetComponentInChildren<BrakeStatusHUD>(true);
+            if (brakeStatus == null)
+            {
+                GameObject go = new("Brake Status", typeof(RectTransform));
+                go.transform.SetParent(transform, false);
+                brakeStatus = go.AddComponent<BrakeStatusHUD>();
+            }
+            brakeStatus.Bind(brakes);
         }
 
         private void EnsureFlightPathMarker()
@@ -120,7 +168,7 @@ namespace SimplyFly.GroundOps
             if (engineInstrument == null && powerInstrument != null)
                 engineInstrument =
                     powerInstrument.gameObject.AddComponent<EngineInstrumentController>();
-            engineInstrument?.Bind(engine);
+            engineInstrument?.Bind(engine, throttle);
         }
 
         private void EnsureMiniAttitude()
@@ -142,26 +190,27 @@ namespace SimplyFly.GroundOps
             if (container == null) return;
 
             container.anchorMin = container.anchorMax = new Vector2(0.5f, 0f);
-            container.pivot = new Vector2(0.5f, 0f);
-            container.anchoredPosition = new Vector2(0f, 255f);
-            container.sizeDelta = new Vector2(320f, 42f);
+            container.pivot = new Vector2(1f, 0f);
+            // Mini attitude is 220 px wide; keep a 45 px visual gutter.
+            container.anchoredPosition = new Vector2(-155f, 20f);
+            container.sizeDelta = new Vector2(220f, 58f);
 
             Image background = container.GetComponent<Image>();
             if (background != null)
-                background.color = new Color(0.01f, 0.055f, 0.07f, 0.68f);
+                background.color = new Color(0.01f, 0.035f, 0.05f, 0.68f);
             Outline outline = container.GetComponent<Outline>();
             if (outline == null) outline = container.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0.15f, 0.95f, 1f, 0.42f);
+            outline.effectColor = new Color(0.5f, 0.72f, 0.76f, 0.5f);
             outline.effectDistance = new Vector2(1f, -1f);
 
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
             labelRect.offsetMin = new Vector2(10f, 5f);
             labelRect.offsetMax = new Vector2(-10f, -5f);
-            holdAssistLabel.fontSize = 14f;
+            holdAssistLabel.fontSize = 13f;
             holdAssistLabel.enableAutoSizing = true;
             holdAssistLabel.fontSizeMin = 11f;
-            holdAssistLabel.fontSizeMax = 14f;
+            holdAssistLabel.fontSizeMax = 13f;
             holdAssistLabel.alignment = TextAlignmentOptions.Center;
             holdAssistLabel.textWrappingMode = TextWrappingModes.NoWrap;
         }
@@ -348,16 +397,10 @@ namespace SimplyFly.GroundOps
 
         private string BuildHeadingDetail()
         {
-            if (wind == null) wind = FindAnyObjectByType<WindController>();
-            string windDetail = wind == null || !wind.WindEnabled
-                ? "WIND CALM"
-                : $"WIND {wind.WindFromHeading:000}/{wind.WindSpeedKnots:0}  " +
-                  $"HW {wind.HeadwindKnots:+0;-0;0}  XW {wind.CrosswindKnots:+0;-0;0}";
-
             return approach != null && approach.HasRunwayTarget
                 ? $"{(locationManager?.CurrentAirport?.airportName ?? "AIRPORT")}\n" +
-                  $"RWY {approach.RunwayHeading:000}°\n{windDetail}"
-                : $"MAGNETIC HEADING\n{windDetail}";
+                  $"RWY {approach.RunwayHeading:000}°"
+                : "MAGNETIC HEADING";
         }
 
         private void UpdateAwarenessCue()
@@ -420,31 +463,33 @@ namespace SimplyFly.GroundOps
         private void UpdateHoldAssist()
         {
             if (holdAssistLabel == null) return;
-            if (holdAssist == null)
+            GameObject holdPanel = holdAssistLabel.transform.parent == null
+                ? holdAssistLabel.gameObject
+                : holdAssistLabel.transform.parent.gameObject;
+            if (holdAssist == null ||
+                (!holdAssist.PitchHoldActive && !holdAssist.VerticalSpeedHoldActive))
             {
-                holdAssistLabel.gameObject.SetActive(false);
+                holdPanel.SetActive(false);
                 return;
             }
 
-            string text = holdAssist.TransientMessage;
-            if (string.IsNullOrEmpty(text))
-            {
-                if (holdAssist.PitchHoldActive)
-                    text =
-                        $"PITCH HOLD\nTARGET {holdAssist.TargetPitch:+0.0;-0.0;0.0}°";
-                else if (holdAssist.VerticalSpeedHoldActive)
-                    text =
-                        holdAssist.VerticalSpeedTargetClamped
-                            ? $"VS HOLD\nTARGET {holdAssist.TargetVerticalSpeed:+0.0;-0.0;0.0} m/s  " +
-                              $"(CAPTURED {holdAssist.CapturedVerticalSpeed:+0.0;-0.0;0.0})"
-                            : $"VS HOLD\nTARGET {holdAssist.TargetVerticalSpeed:+0.0;-0.0;0.0} m/s";
-                if (holdAssist.VerticalSpeedHoldActive &&
-                    holdAssist.VerticalSpeedEnergyLimited)
-                    text += "\nADD POWER";
-            }
+            holdPanel.SetActive(true);
+            // Older HUD behavior disabled only the label, so explicitly restore
+            // it when a hold mode becomes active.
+            holdAssistLabel.gameObject.SetActive(true);
+
+            string text = holdAssist.PitchHoldActive
+                ? $"PITCH HOLD\nTARGET {holdAssist.TargetPitch:+0.0;-0.0;0.0}°"
+                : holdAssist.VerticalSpeedTargetClamped
+                    ? $"VS HOLD\nTARGET {holdAssist.TargetVerticalSpeed:+0.0;-0.0;0.0} m/s  " +
+                      $"(CAPTURED {holdAssist.CapturedVerticalSpeed:+0.0;-0.0;0.0})"
+                    : $"VS HOLD\nTARGET {holdAssist.TargetVerticalSpeed:+0.0;-0.0;0.0} m/s";
+            if (holdAssist.VerticalSpeedHoldActive &&
+                holdAssist.VerticalSpeedEnergyLimited)
+                text += "\nADD POWER";
 
             bool visible = !string.IsNullOrEmpty(text);
-            holdAssistLabel.gameObject.SetActive(visible);
+            holdPanel.SetActive(visible);
             if (!visible) return;
             holdAssistLabel.text = text;
             holdAssistLabel.color =

@@ -62,9 +62,10 @@ namespace SimplyFly.GroundOps
             built = true;
             displayedValue = targetValue;
             RectTransform host = (RectTransform)transform;
-            host.anchorMin = host.anchorMax = new Vector2(1f, 0.5f);
-            host.pivot = new Vector2(1f, 0.5f);
-            host.anchoredPosition = new Vector2(-18f, -210f);
+            // Bottom-align with the engine and attitude instruments.
+            host.anchorMin = host.anchorMax = new Vector2(1f, 0f);
+            host.pivot = new Vector2(1f, 0f);
+            host.anchoredPosition = new Vector2(-18f, 20f);
             Image oldPanel = host.GetComponent<Image>();
             if (oldPanel != null) oldPanel.enabled = false;
             for (int i = 0; i < host.childCount; i++) host.GetChild(i).gameObject.SetActive(false);
