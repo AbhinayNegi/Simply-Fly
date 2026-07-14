@@ -38,6 +38,8 @@ namespace SimplyFly.GroundOps
                 if (energyLabel != null) energyLabel.gameObject.SetActive(false);
                 if (airflowLabel != null) airflowLabel.gameObject.SetActive(false);
             }
+            if (controlPressureLabel != null)
+                controlPressureLabel.gameObject.SetActive(false);
             CacheStreaks();
             ApplyVisibility();
         }
@@ -123,13 +125,6 @@ namespace SimplyFly.GroundOps
                         : awareness.AirspeedTrend < -0.45f
                             ? new Color(1f, 0.75f, 0.2f)
                             : new Color(0.3f, 1f, 0.55f);
-            }
-            if (controlPressureLabel != null)
-            {
-                controlPressureLabel.text = awareness.ControlPressureCue;
-                controlPressureLabel.gameObject.SetActive(
-                    !string.IsNullOrWhiteSpace(
-                        awareness.ControlPressureCue));
             }
             if (showLegacyTextLabels && airflowLabel != null)
             {

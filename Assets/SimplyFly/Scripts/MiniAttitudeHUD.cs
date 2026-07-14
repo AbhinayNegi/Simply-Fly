@@ -41,12 +41,17 @@ namespace SimplyFly.GroundOps
         private float displayedBank;
         private float pitchVelocity;
         private float bankVelocity;
+        private float activePixelsPerPitchDegree;
         private bool built;
 
         private static readonly Color Cyan = FlightHUDStyle.Cyan;
         private static readonly Color White = FlightHUDStyle.White;
-        private static readonly Color Sky = new Color(0.12f, 0.38f, 0.68f, 0.96f);
-        private static readonly Color Ground = new Color(0.29f, 0.19f, 0.11f, 0.98f);
+        private static readonly Color Sky = new Color(0.11f, 0.49f, 0.82f, 0.98f);
+        private static readonly Color Ground = new Color(0.36f, 0.24f, 0.11f, 0.99f);
+        private const string AttitudeResourceRoot = "Attitude/";
+        private const float BankPointerRadius = 128f;
+        private const float BankPointerZeroY = 80f;
+        private const float BankScaleLimit = 60f;
 
         public void SetAttitude(float pitchDegrees, float bankDegrees)
         {
@@ -68,7 +73,7 @@ namespace SimplyFly.GroundOps
             float clampedPitch = Mathf.Clamp(
                 displayedPitch, -displayedPitchLimit, displayedPitchLimit);
             horizon.anchoredPosition = new Vector2(
-                0f, -clampedPitch * pixelsPerPitchDegree);
+                0f, -clampedPitch * activePixelsPerPitchDegree);
             // The horizon moves opposite aircraft roll while the cyan aircraft
             // reference remains fixed in screen space.
             horizon.localRotation = Quaternion.Euler(0f, 0f, displayedBank);
@@ -100,13 +105,6 @@ namespace SimplyFly.GroundOps
                 new Vector2(274f, 1f), new Color(0.7f, 0.9f, 1f, 0.18f));
             AddLine("Panel Lower Edge", panel, new Vector2(0f, -152f),
                 new Vector2(274f, 2f), new Color(0f, 0.01f, 0.015f, 0.5f));
-
-            TMP_Text title = Text("Title", panel, 16f, FontStyles.Bold);
-            title.text = "ATTITUDE"; title.color = Cyan;
-            PlaceCentered(title.rectTransform, new Vector2(0f, 138f),
-                new Vector2(270f, 24f));
-            AddLine("Header Divider", panel, new Vector2(0f, 120f),
-                new Vector2(274f, 1f), FlightHUDStyle.Divider);
 
             RectTransform viewport = Rect("Horizon Viewport", panel);
             viewport.anchorMin = viewport.anchorMax = new Vector2(0.5f, 0.5f);
@@ -147,25 +145,54 @@ namespace SimplyFly.GroundOps
                 new Color(0.09f, 0.04f, 0.015f, 0.28f);
             AddLine("Horizon Line", horizon, Vector2.zero,
                 new Vector2(500f, 3f), new Color(0.82f, 1f, 1f, 1f));
-            AddPitchMarks(horizon);
+            Sprite pitchLadder = Resources.Load<Sprite>(
+                AttitudeResourceRoot + "pitch_ladder");
+            if (pitchLadder != null)
+            {
+                // Scale the 2x source prominently enough for the compact HUD.
+                // At 495 px tall its 10-degree rows are 37.5 px apart.
+                activePixelsPerPitchDegree = 3.75f;
+                AddSprite("Pitch Ladder", horizon, pitchLadder,
+                    Vector2.zero, new Vector2(225f, 495f));
+            }
+            else
+            {
+                activePixelsPerPitchDegree = pixelsPerPitchDegree;
+                AddPitchMarks(horizon);
+            }
+
+            // Reserve a fixed, quiet band for the bank arc. This masks only
+            // high pitch-ladder rows that would otherwise compete with the
+            // bank labels while keeping the main horizon unobstructed.
+            RectTransform bankBand = Rect("Bank Scale Readability Band", viewport);
+            bankBand.anchorMin = bankBand.anchorMax = new Vector2(0.5f, 0.5f);
+            bankBand.anchoredPosition = new Vector2(0f, 75f);
+            bankBand.sizeDelta = new Vector2(274f, 54f);
+            bankBand.gameObject.AddComponent<Image>().color =
+                new Color(0.035f, 0.16f, 0.34f, 0.88f);
+            AddLine("Bank Band Divider", bankBand, new Vector2(0f, -26f),
+                new Vector2(246f, 1f), new Color(0.65f, 0.9f, 1f, 0.22f));
 
             // Bank scale is parented to the fixed viewport, not the moving
             // horizon, so all reference angles remain stationary.
-            AddBankReferenceScale(viewport);
+            Sprite bankScale = Resources.Load<Sprite>(
+                AttitudeResourceRoot + "bank_scale");
+            if (bankScale != null)
+                AddSprite("Bank Scale", viewport, bankScale,
+                    new Vector2(0f, 52f), new Vector2(230f, 90f));
+            else
+                AddBankReferenceScale(viewport);
+
+            AddBankPointer(viewport);
 
             // Fixed aircraft reference: wings, center dot and short nose bars.
-            AddLine("Aircraft Left Wing", viewport, new Vector2(-58f, 0f),
-                new Vector2(82f, 4f), Cyan);
-            AddLine("Aircraft Right Wing", viewport, new Vector2(58f, 0f),
-                new Vector2(82f, 4f), Cyan);
-            AddLine("Aircraft Left Tip", viewport, new Vector2(-98f, -6f),
-                new Vector2(4f, 16f), Cyan);
-            AddLine("Aircraft Right Tip", viewport, new Vector2(98f, -6f),
-                new Vector2(4f, 16f), Cyan);
-            RectTransform center = Rect("Aircraft Center", viewport);
-            center.anchorMin = center.anchorMax = new Vector2(0.5f, 0.5f);
-            center.sizeDelta = new Vector2(14f, 14f);
-            center.gameObject.AddComponent<Image>().color = Cyan;
+            Sprite aircraftSymbol = Resources.Load<Sprite>(
+                AttitudeResourceRoot + "aircraft_symbol");
+            if (aircraftSymbol != null)
+                AddSprite("Aircraft Reference", viewport, aircraftSymbol,
+                    Vector2.zero, new Vector2(210f, 32f));
+            else
+                AddProceduralAircraftReference(viewport);
 
             AddLine("Readout Divider", panel, new Vector2(0f, -82f),
                 new Vector2(276f, 1f), new Color(White.r, White.g, White.b, 0.42f));
@@ -237,29 +264,81 @@ namespace SimplyFly.GroundOps
                     major ? 0.98f : 0.62f);
             }
 
-            bankPointer = Rect("Current Bank Pointer", parent);
+        }
+
+        private void AddBankPointer(Transform parent)
+        {
+            bankPointer = Rect("Bank Pointer Rotor", parent);
             bankPointer.anchorMin = bankPointer.anchorMax =
                 new Vector2(0.5f, 0.5f);
-            bankPointer.anchoredPosition = new Vector2(0f, 78f);
-            bankPointer.sizeDelta = new Vector2(17f, 12f);
-            if (bankPointer.GetComponent<CanvasRenderer>() == null)
-                bankPointer.gameObject.AddComponent<CanvasRenderer>();
+            // The supplied scale is a crop of a larger 170 px-radius arc.
+            // At its displayed size that arc is 128 px, with its center below
+            // the visible viewport so the zero-degree index sits at y=78.
+            bankPointer.anchoredPosition = new Vector2(
+                0f, BankPointerZeroY - BankPointerRadius);
+            bankPointer.sizeDelta = new Vector2(276f, 204f);
+
+            Sprite pointerSprite = Resources.Load<Sprite>(
+                AttitudeResourceRoot + "bank_pointer");
+            if (pointerSprite != null)
+            {
+                AddSprite("Bank Pointer", bankPointer, pointerSprite,
+                    new Vector2(0f, BankPointerRadius), new Vector2(18f, 15f));
+                return;
+            }
+
+            RectTransform pointer = Rect("Bank Pointer", bankPointer);
+            pointer.anchorMin = pointer.anchorMax = new Vector2(0.5f, 0.5f);
+            pointer.anchoredPosition = new Vector2(0f, BankPointerRadius);
+            pointer.sizeDelta = new Vector2(17f, 12f);
+            if (pointer.GetComponent<CanvasRenderer>() == null)
+                pointer.gameObject.AddComponent<CanvasRenderer>();
             AttitudeTriangleGraphic triangle =
-                bankPointer.gameObject.AddComponent<AttitudeTriangleGraphic>();
-            triangle.color = Cyan;
+                pointer.gameObject.AddComponent<AttitudeTriangleGraphic>();
+            triangle.color = White;
             triangle.raycastTarget = false;
+        }
+
+        private static void AddProceduralAircraftReference(Transform parent)
+        {
+            AddLine("Aircraft Left Wing", parent, new Vector2(-58f, 0f),
+                new Vector2(82f, 4f), Cyan);
+            AddLine("Aircraft Right Wing", parent, new Vector2(58f, 0f),
+                new Vector2(82f, 4f), Cyan);
+            AddLine("Aircraft Left Tip", parent, new Vector2(-98f, -6f),
+                new Vector2(4f, 16f), Cyan);
+            AddLine("Aircraft Right Tip", parent, new Vector2(98f, -6f),
+                new Vector2(4f, 16f), Cyan);
+            RectTransform center = Rect("Aircraft Center", parent);
+            center.anchorMin = center.anchorMax = new Vector2(0.5f, 0.5f);
+            center.sizeDelta = new Vector2(14f, 14f);
+            center.gameObject.AddComponent<Image>().color = Cyan;
         }
 
         private void RefreshBankPointer()
         {
             if (bankPointer == null) return;
             float bank = Mathf.Clamp(
-                Mathf.DeltaAngle(0f, displayedBank), -30f, 30f);
-            float radians = bank * Mathf.Deg2Rad;
+                Mathf.DeltaAngle(0f, displayedBank),
+                -BankScaleLimit, BankScaleLimit);
             bankPointer.anchoredPosition = new Vector2(
-                Mathf.Sin(radians) * 78f,
-                Mathf.Cos(radians) * 78f);
+                0f, BankPointerZeroY - BankPointerRadius);
             bankPointer.localRotation = Quaternion.Euler(0f, 0f, -bank);
+        }
+
+        private static Image AddSprite(string name, Transform parent,
+            Sprite sprite, Vector2 position, Vector2 size)
+        {
+            RectTransform rect = Rect(name, parent);
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            Image image = rect.gameObject.AddComponent<Image>();
+            image.sprite = sprite;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            return image;
         }
 
         private static void AddLine(string name, Transform parent,
