@@ -1,0 +1,122 @@
+.vsi-root {
+    position: absolute;
+    right: 18px;
+    bottom: 12px;
+    width: 250px;
+    height: 360px;
+}
+
+.vsi-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 140px;
+    height: 360px;
+    border-radius: 2px;
+    background-color: rgba(20, 48, 51, 0.78);
+    border-width: 1px;
+    border-color: rgba(120, 150, 180, 0.5);
+}
+
+.vsi-header {
+    padding: 7px 3px 0 3px;
+    align-items: center;
+}
+
+.vsi-title {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: rgb(238, 244, 248);
+    -unity-text-align: upper-center;
+    white-space: nowrap;
+}
+
+.vsi-divider {
+    margin-top: 6px;
+    width: 118px;
+    height: 1px;
+    background-color: rgba(150, 175, 200, 0.3);
+}
+
+.vsi-tape-container {
+    position: absolute;
+    top: 38px;
+    left: 0;
+    width: 140px;
+    height: 314px;
+    overflow: hidden;
+}
+
+.vsi-tick {
+    position: absolute;
+    background-color: rgb(255, 255, 255);
+    border-radius: 1px;
+}
+
+.vsi-tick-label {
+    position: absolute;
+    width: 72px;
+    height: 20px;
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: rgb(238, 244, 248);
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+}
+
+.vsi-zero-label {
+    color: rgb(34, 217, 240);
+}
+
+.vsi-zero-line {
+    position: absolute;
+    height: 3px;
+    border-radius: 2px;
+    background-color: rgba(34, 217, 240, 0.72);
+}
+
+.vsi-marker-line {
+    position: absolute;
+    left: 100px;
+    width: 30px;
+    height: 3px;
+    border-radius: 2px;
+    background-color: rgb(34, 217, 240);
+}
+
+.vsi-marker-triangle {
+    position: absolute;
+    left: 111px;
+    width: 13px;
+    height: 18px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.vsi-readout-box {
+    position: absolute;
+    left: 0;
+    width: 110px;
+    height: 72px;
+    border-radius: 2px;
+    border-width: 1px;
+    border-color: rgb(34, 217, 240);
+    background-color: rgba(4, 22, 25, 0.88);
+    align-items: center;
+    justify-content: center;
+}
+
+.vsi-readout-value {
+    font-size: 27px;
+    -unity-font-style: bold;
+    color: rgb(34, 217, 240);
+    white-space: nowrap;
+}
+
+.vsi-readout-unit {
+    margin-top: -3px;
+    font-size: 12px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: rgb(34, 217, 240);
+    opacity: 0.88;
+}

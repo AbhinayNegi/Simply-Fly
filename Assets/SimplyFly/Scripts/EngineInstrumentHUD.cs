@@ -105,11 +105,12 @@ namespace SimplyFly.GroundOps
             if (legacyPanel != null) legacyPanel.enabled = false;
             for (int i = 0; i < host.childCount; i++)
                 host.GetChild(i).gameObject.SetActive(false);
-            if (host.anchorMin.y <= 0.01f && host.anchorMax.y <= 0.01f)
-                host.anchoredPosition = new Vector2(
-                    host.anchoredPosition.x,
-                    Mathf.Max(host.anchoredPosition.y, FlightHUDStyle.BottomSafeMargin));
-            host.sizeDelta = new Vector2(230f, 270f);
+            host.anchorMin = host.anchorMax = Vector2.zero;
+            host.pivot = Vector2.zero;
+            host.anchoredPosition = new Vector2(
+                FlightHUDStyle.BottomSafeMargin,
+                FlightHUDStyle.BottomSafeMargin);
+            host.sizeDelta = new Vector2(230f, 277f);
 
             RectTransform panel = Rect("Engine Panel", host);
             Stretch(panel);

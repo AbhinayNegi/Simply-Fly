@@ -1,0 +1,21 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement name="vsi-root" class="vsi-root">
+        <ui:VisualElement name="panel" class="vsi-panel">
+            <ui:VisualElement name="header" class="vsi-header">
+                <ui:Label name="title" text="VERTICAL SPEED" class="vsi-title" />
+                <ui:VisualElement name="divider" class="vsi-divider" />
+            </ui:VisualElement>
+            <ui:VisualElement name="tape-container" class="vsi-tape-container" picking-mode="Ignore">
+                <!-- ticks + labels + zero line are added procedurally at runtime by VerticalSpeedIndicator.cs -->
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="marker-line" class="vsi-marker-line" />
+        <ui:VisualElement name="marker-triangle" class="vsi-marker-triangle" />
+
+        <ui:VisualElement name="readout-box" class="vsi-readout-box">
+            <ui:Label name="readout-value" text="+320" class="vsi-readout-value" />
+            <ui:Label name="readout-unit" text="FT/MIN" class="vsi-readout-unit" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

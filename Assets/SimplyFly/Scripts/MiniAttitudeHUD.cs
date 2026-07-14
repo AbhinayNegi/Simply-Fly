@@ -50,7 +50,7 @@ namespace SimplyFly.GroundOps
         private static readonly Color Ground = new Color(0.36f, 0.24f, 0.11f, 0.99f);
         private const string AttitudeResourceRoot = "Attitude/";
         private const float BankPointerRadius = 128f;
-        private const float BankPointerZeroY = 80f;
+        private const float BankPointerZeroY = 74f;
         private const float BankScaleLimit = 60f;
 
         public void SetAttitude(float pitchDegrees, float bankDegrees)
@@ -90,26 +90,28 @@ namespace SimplyFly.GroundOps
             if (legacyPanel != null) legacyPanel.enabled = false;
             for (int i = 0; i < host.childCount; i++)
                 host.GetChild(i).gameObject.SetActive(false);
-            if (host.anchorMin.y <= 0.01f && host.anchorMax.y <= 0.01f)
-                host.anchoredPosition = new Vector2(
-                    host.anchoredPosition.x,
-                    Mathf.Max(host.anchoredPosition.y, FlightHUDStyle.BottomSafeMargin));
-            host.sizeDelta = new Vector2(312f, 308f);
+            // Bottom row: 24 px margin + 230 px engine + 24 px gutter.
+            // A left anchor keeps this instrument away from the aircraft centerline.
+            host.anchorMin = host.anchorMax = Vector2.zero;
+            host.pivot = Vector2.zero;
+            host.anchoredPosition = new Vector2(
+                278f, FlightHUDStyle.BottomSafeMargin);
+            host.sizeDelta = new Vector2(344f, 277f);
 
             RectTransform panel = Rect("Mini Attitude Panel", host);
             Stretch(panel);
             Image background = panel.gameObject.AddComponent<Image>();
             background.color = FlightHUDStyle.PrimaryPanel;
             FlightHUDStyle.AddOutline(panel.gameObject);
-            AddLine("Panel Top Highlight", panel, new Vector2(0f, 152f),
-                new Vector2(274f, 1f), new Color(0.7f, 0.9f, 1f, 0.18f));
-            AddLine("Panel Lower Edge", panel, new Vector2(0f, -152f),
-                new Vector2(274f, 2f), new Color(0f, 0.01f, 0.015f, 0.5f));
+            AddLine("Panel Top Highlight", panel, new Vector2(0f, 136f),
+                new Vector2(306f, 1f), new Color(0.7f, 0.9f, 1f, 0.18f));
+            AddLine("Panel Lower Edge", panel, new Vector2(0f, -136f),
+                new Vector2(306f, 2f), new Color(0f, 0.01f, 0.015f, 0.5f));
 
             RectTransform viewport = Rect("Horizon Viewport", panel);
             viewport.anchorMin = viewport.anchorMax = new Vector2(0.5f, 0.5f);
-            viewport.anchoredPosition = new Vector2(0f, 28f);
-            viewport.sizeDelta = new Vector2(276f, 204f);
+            viewport.anchoredPosition = new Vector2(0f, 25f);
+            viewport.sizeDelta = new Vector2(304f, 182f);
             viewport.gameObject.AddComponent<RectMask2D>();
             Image viewportBorder = viewport.gameObject.AddComponent<Image>();
             viewportBorder.color = new Color(0.03f, 0.07f, 0.09f, 1f);
@@ -119,7 +121,7 @@ namespace SimplyFly.GroundOps
 
             horizon = Rect("Moving Horizon", viewport);
             horizon.anchorMin = horizon.anchorMax = new Vector2(0.5f, 0.5f);
-            horizon.sizeDelta = new Vector2(540f, 540f);
+            horizon.sizeDelta = new Vector2(600f, 600f);
 
             RectTransform sky = Rect("Sky", horizon);
             sky.anchorMin = new Vector2(0f, 0.5f);
@@ -144,7 +146,7 @@ namespace SimplyFly.GroundOps
             groundBottom.gameObject.AddComponent<Image>().color =
                 new Color(0.09f, 0.04f, 0.015f, 0.28f);
             AddLine("Horizon Line", horizon, Vector2.zero,
-                new Vector2(500f, 3f), new Color(0.82f, 1f, 1f, 1f));
+                new Vector2(560f, 3f), new Color(0.82f, 1f, 1f, 1f));
             Sprite pitchLadder = Resources.Load<Sprite>(
                 AttitudeResourceRoot + "pitch_ladder");
             if (pitchLadder != null)
@@ -153,7 +155,7 @@ namespace SimplyFly.GroundOps
                 // At 495 px tall its 10-degree rows are 37.5 px apart.
                 activePixelsPerPitchDegree = 3.75f;
                 AddSprite("Pitch Ladder", horizon, pitchLadder,
-                    Vector2.zero, new Vector2(225f, 495f));
+                    Vector2.zero, new Vector2(248f, 495f));
             }
             else
             {
@@ -166,12 +168,12 @@ namespace SimplyFly.GroundOps
             // bank labels while keeping the main horizon unobstructed.
             RectTransform bankBand = Rect("Bank Scale Readability Band", viewport);
             bankBand.anchorMin = bankBand.anchorMax = new Vector2(0.5f, 0.5f);
-            bankBand.anchoredPosition = new Vector2(0f, 75f);
-            bankBand.sizeDelta = new Vector2(274f, 54f);
+            bankBand.anchoredPosition = new Vector2(0f, 68f);
+            bankBand.sizeDelta = new Vector2(302f, 44f);
             bankBand.gameObject.AddComponent<Image>().color =
                 new Color(0.035f, 0.16f, 0.34f, 0.88f);
-            AddLine("Bank Band Divider", bankBand, new Vector2(0f, -26f),
-                new Vector2(246f, 1f), new Color(0.65f, 0.9f, 1f, 0.22f));
+            AddLine("Bank Band Divider", bankBand, new Vector2(0f, -21f),
+                new Vector2(274f, 1f), new Color(0.65f, 0.9f, 1f, 0.22f));
 
             // Bank scale is parented to the fixed viewport, not the moving
             // horizon, so all reference angles remain stationary.
@@ -179,7 +181,7 @@ namespace SimplyFly.GroundOps
                 AttitudeResourceRoot + "bank_scale");
             if (bankScale != null)
                 AddSprite("Bank Scale", viewport, bankScale,
-                    new Vector2(0f, 52f), new Vector2(230f, 90f));
+                    new Vector2(0f, 46f), new Vector2(230f, 90f));
             else
                 AddBankReferenceScale(viewport);
 
@@ -190,30 +192,30 @@ namespace SimplyFly.GroundOps
                 AttitudeResourceRoot + "aircraft_symbol");
             if (aircraftSymbol != null)
                 AddSprite("Aircraft Reference", viewport, aircraftSymbol,
-                    Vector2.zero, new Vector2(210f, 32f));
+                    Vector2.zero, new Vector2(230f, 35f));
             else
                 AddProceduralAircraftReference(viewport);
 
-            AddLine("Readout Divider", panel, new Vector2(0f, -82f),
-                new Vector2(276f, 1f), new Color(White.r, White.g, White.b, 0.42f));
+            AddLine("Readout Divider", panel, new Vector2(0f, -70f),
+                new Vector2(304f, 1f), new Color(White.r, White.g, White.b, 0.42f));
             TMP_Text pitchTitle = Text("Pitch Label", panel, 11f, FontStyles.Bold);
             pitchTitle.text = "PITCH"; pitchTitle.color = White;
-            PlaceCentered(pitchTitle.rectTransform, new Vector2(-74f, -101f),
-                new Vector2(126f, 18f));
+            PlaceCentered(pitchTitle.rectTransform, new Vector2(-82f, -87f),
+                new Vector2(140f, 18f));
             pitchLabel = Text("Pitch Value", panel, 19f, FontStyles.Normal);
             pitchLabel.color = Cyan;
-            PlaceCentered(pitchLabel.rectTransform, new Vector2(-74f, -126f),
-                new Vector2(126f, 28f));
+            PlaceCentered(pitchLabel.rectTransform, new Vector2(-82f, -111f),
+                new Vector2(140f, 28f));
             TMP_Text bankTitle = Text("Bank Label", panel, 11f, FontStyles.Bold);
             bankTitle.text = "BANK"; bankTitle.color = White;
-            PlaceCentered(bankTitle.rectTransform, new Vector2(74f, -101f),
-                new Vector2(126f, 18f));
+            PlaceCentered(bankTitle.rectTransform, new Vector2(82f, -87f),
+                new Vector2(140f, 18f));
             bankLabel = Text("Bank Value", panel, 19f, FontStyles.Normal);
             bankLabel.color = Cyan;
-            PlaceCentered(bankLabel.rectTransform, new Vector2(74f, -126f),
-                new Vector2(126f, 28f));
-            AddLine("Digital Divider", panel, new Vector2(0f, -119f),
-                new Vector2(1f, 62f), new Color(White.r, White.g, White.b, 0.3f));
+            PlaceCentered(bankLabel.rectTransform, new Vector2(82f, -111f),
+                new Vector2(140f, 28f));
+            AddLine("Digital Divider", panel, new Vector2(0f, -104f),
+                new Vector2(1f, 54f), new Color(White.r, White.g, White.b, 0.3f));
         }
 
         private void AddPitchMarks(Transform parent)
@@ -273,10 +275,10 @@ namespace SimplyFly.GroundOps
                 new Vector2(0.5f, 0.5f);
             // The supplied scale is a crop of a larger 170 px-radius arc.
             // At its displayed size that arc is 128 px, with its center below
-            // the visible viewport so the zero-degree index sits at y=78.
+            // the visible viewport so the zero-degree index sits at y=74.
             bankPointer.anchoredPosition = new Vector2(
                 0f, BankPointerZeroY - BankPointerRadius);
-            bankPointer.sizeDelta = new Vector2(276f, 204f);
+            bankPointer.sizeDelta = new Vector2(304f, 182f);
 
             Sprite pointerSprite = Resources.Load<Sprite>(
                 AttitudeResourceRoot + "bank_pointer");

@@ -14,7 +14,7 @@ namespace SimplyFly.GroundOps
         private readonly List<TMP_Text> positionLabels = new();
         private readonly List<GameObject> generatedPositionObjects = new();
         private RectTransform marker;
-        private float markerY;
+        private float markerX;
         private float markerVelocity;
         private int configuredPositionCount = -1;
 
@@ -46,10 +46,10 @@ namespace SimplyFly.GroundOps
             if (!available) return;
             if (configuredPositionCount != flaps.PositionCount) RebuildPositions();
 
-            float targetY = PositionYForAngle(flaps.ActualAngle);
-            markerY = Mathf.SmoothDamp(markerY, targetY, ref markerVelocity,
+            float targetX = PositionXForAngle(flaps.ActualAngle);
+            markerX = Mathf.SmoothDamp(markerX, targetX, ref markerVelocity,
                 transitionSmoothing, Mathf.Infinity, Time.unscaledDeltaTime);
-            marker.anchoredPosition = new Vector2(9f, markerY);
+            marker.anchoredPosition = new Vector2(markerX, -36f);
 
             for (int i = 0; i < positionLabels.Count; i++)
             {
@@ -64,25 +64,33 @@ namespace SimplyFly.GroundOps
         private void BuildFrame()
         {
             RectTransform host = (RectTransform)transform;
-            host.anchorMin = host.anchorMax = new Vector2(0.5f, 0f);
+            host.anchorMin = host.anchorMax = Vector2.zero;
             host.pivot = new Vector2(0f, 0f);
-            // Keep a clear gutter beside the enlarged 312 px attitude panel.
-            host.anchoredPosition = new Vector2(185f, FlightHUDStyle.BottomSafeMargin);
-            host.sizeDelta = new Vector2(120f, 206f);
+            // Follow the attitude panel with the shared 24 px gutter.
+            host.anchoredPosition = new Vector2(
+                646f, FlightHUDStyle.BottomSafeMargin);
+            host.sizeDelta = new Vector2(190f, 72f);
 
             Image panel = gameObject.AddComponent<Image>();
             panel.color = FlightHUDStyle.SecondaryPanel;
             FlightHUDStyle.AddOutline(gameObject);
 
             TMP_Text title = Text("Title", 14f, FontStyles.Bold,
-                new Vector2(8f, -7f), new Vector2(88f, 20f));
+                new Vector2(8f, -5f), new Vector2(174f, 20f));
             title.text = "FLAPS";
             title.color = White;
 
+            RectTransform track = Rect("Position Track");
+            track.anchorMin = track.anchorMax = new Vector2(0f, 1f);
+            track.pivot = new Vector2(0.5f, 0.5f);
+            track.anchoredPosition = new Vector2(95f, -36f);
+            track.sizeDelta = new Vector2(142f, 1f);
+            track.gameObject.AddComponent<Image>().color = Dim;
+
             marker = Rect("Position Marker");
             marker.anchorMin = marker.anchorMax = new Vector2(0f, 1f);
-            marker.pivot = new Vector2(0f, 0.5f);
-            marker.sizeDelta = new Vector2(12f, 4f);
+            marker.pivot = new Vector2(0.5f, 0.5f);
+            marker.sizeDelta = new Vector2(3f, 15f);
             marker.gameObject.AddComponent<Image>().color = Cyan;
         }
 
@@ -103,44 +111,44 @@ namespace SimplyFly.GroundOps
             for (int i = 0; i < configuredPositionCount; i++)
             {
                 TMP_Text label = Text($"Position {i}", 14f, FontStyles.Normal,
-                    new Vector2(19f, PositionY(i) - 10f), new Vector2(76f, 20f));
+                    new Vector2(PositionX(i) - 19f, -43f), new Vector2(38f, 20f));
                 label.text = $"{flaps.GetPositionAngle(i):0}°";
-                label.alignment = TextAlignmentOptions.Left;
+                label.alignment = TextAlignmentOptions.Center;
                 positionLabels.Add(label);
                 generatedPositionObjects.Add(label.gameObject);
 
                 RectTransform tick = Rect($"Tick {i}");
                 tick.anchorMin = tick.anchorMax = new Vector2(0f, 1f);
-                tick.pivot = new Vector2(0f, 0.5f);
-                tick.anchoredPosition = new Vector2(10f, PositionY(i));
-                tick.sizeDelta = new Vector2(7f, 1f);
+                tick.pivot = new Vector2(0.5f, 0.5f);
+                tick.anchoredPosition = new Vector2(PositionX(i), -36f);
+                tick.sizeDelta = new Vector2(1f, 8f);
                 tick.gameObject.AddComponent<Image>().color = White;
                 generatedPositionObjects.Add(tick.gameObject);
             }
-            markerY = PositionYForAngle(flaps.ActualAngle);
+            markerX = PositionXForAngle(flaps.ActualAngle);
+            marker.SetAsLastSibling();
         }
 
-        private float PositionYForAngle(float angle)
+        private float PositionXForAngle(float angle)
         {
-            if (flaps == null || configuredPositionCount <= 1) return -44f;
+            if (flaps == null || configuredPositionCount <= 1) return 24f;
             for (int i = 0; i < configuredPositionCount - 1; i++)
             {
                 float from = flaps.GetPositionAngle(i);
                 float to = flaps.GetPositionAngle(i + 1);
                 if (angle > to && i < configuredPositionCount - 2) continue;
                 float t = Mathf.InverseLerp(from, to, angle);
-                return Mathf.Lerp(PositionY(i), PositionY(i + 1), t);
+                return Mathf.Lerp(PositionX(i), PositionX(i + 1), t);
             }
-            return PositionY(configuredPositionCount - 1);
+            return PositionX(configuredPositionCount - 1);
         }
 
-        private float PositionY(int index)
+        private float PositionX(int index)
         {
             float t = configuredPositionCount <= 1
                 ? 0f
                 : index / (float)(configuredPositionCount - 1);
-            // Keep the final label and degree glyph within the 170 px panel.
-            return Mathf.Lerp(-50f, -174f, t);
+            return Mathf.Lerp(24f, 166f, t);
         }
 
         private TMP_Text Text(string name, float size, FontStyles style,

@@ -189,10 +189,11 @@ namespace SimplyFly.GroundOps
             RectTransform container = labelRect.parent as RectTransform;
             if (container == null) return;
 
-            container.anchorMin = container.anchorMax = new Vector2(0.5f, 0f);
-            container.pivot = new Vector2(1f, 0f);
-            // Keep a clear gutter beside the enlarged 312 px attitude panel.
-            container.anchoredPosition = new Vector2(-185f, FlightHUDStyle.BottomSafeMargin);
+            container.anchorMin = container.anchorMax = Vector2.zero;
+            container.pivot = Vector2.zero;
+            // Continue the lower-left instrument row after the flaps panel.
+            container.anchoredPosition = new Vector2(
+                860f, FlightHUDStyle.BottomSafeMargin);
             container.sizeDelta = new Vector2(220f, 58f);
 
             Image background = container.GetComponent<Image>();
@@ -282,6 +283,8 @@ namespace SimplyFly.GroundOps
             if (navigationMapSuppressed) hudGroup.alpha = 0f;
             hudGroup.interactable = false;
             hudGroup.blocksRaycasts = false;
+            verticalSpeedIndicator?.SetVisible(
+                hudVisible && !navigationMapSuppressed);
         }
 
         public void SetHUDVisible(bool visible)
@@ -478,12 +481,18 @@ namespace SimplyFly.GroundOps
             // it when a hold mode becomes active.
             holdAssistLabel.gameObject.SetActive(true);
 
+            const float FeetPerMeter = 3.28084f;
+            float targetVerticalSpeedFeetPerSecond =
+                holdAssist.TargetVerticalSpeed * FeetPerMeter;
+            float capturedVerticalSpeedFeetPerSecond =
+                holdAssist.CapturedVerticalSpeed * FeetPerMeter;
+
             string text = holdAssist.PitchHoldActive
                 ? $"PITCH HOLD\nTARGET {holdAssist.TargetPitch:+0.0;-0.0;0.0}°"
                 : holdAssist.VerticalSpeedTargetClamped
-                    ? $"VS HOLD\nTARGET {holdAssist.TargetVerticalSpeed:+0.0;-0.0;0.0} m/s  " +
-                      $"(CAPTURED {holdAssist.CapturedVerticalSpeed:+0.0;-0.0;0.0})"
-                    : $"VS HOLD\nTARGET {holdAssist.TargetVerticalSpeed:+0.0;-0.0;0.0} m/s";
+                    ? $"VS HOLD\nTARGET {targetVerticalSpeedFeetPerSecond:+0.0;-0.0;0.0} FT/S  " +
+                      $"(CAPTURED {capturedVerticalSpeedFeetPerSecond:+0.0;-0.0;0.0})"
+                    : $"VS HOLD\nTARGET {targetVerticalSpeedFeetPerSecond:+0.0;-0.0;0.0} FT/S";
             if (holdAssist.VerticalSpeedHoldActive &&
                 holdAssist.VerticalSpeedEnergyLimited)
                 text += "\nADD POWER";
