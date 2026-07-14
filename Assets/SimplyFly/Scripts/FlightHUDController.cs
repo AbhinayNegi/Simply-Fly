@@ -191,8 +191,8 @@ namespace SimplyFly.GroundOps
 
             container.anchorMin = container.anchorMax = new Vector2(0.5f, 0f);
             container.pivot = new Vector2(1f, 0f);
-            // Mini attitude is 220 px wide; keep a 45 px visual gutter.
-            container.anchoredPosition = new Vector2(-155f, FlightHUDStyle.BottomSafeMargin);
+            // Keep a clear gutter beside the enlarged 312 px attitude panel.
+            container.anchoredPosition = new Vector2(-185f, FlightHUDStyle.BottomSafeMargin);
             container.sizeDelta = new Vector2(220f, 58f);
 
             Image background = container.GetComponent<Image>();

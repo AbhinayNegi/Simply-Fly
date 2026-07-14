@@ -66,8 +66,8 @@ namespace SimplyFly.GroundOps
             RectTransform host = (RectTransform)transform;
             host.anchorMin = host.anchorMax = new Vector2(0.5f, 0f);
             host.pivot = new Vector2(0f, 0f);
-            // Mini attitude is 220 px wide; keep a 45 px visual gutter.
-            host.anchoredPosition = new Vector2(155f, FlightHUDStyle.BottomSafeMargin);
+            // Keep a clear gutter beside the enlarged 312 px attitude panel.
+            host.anchoredPosition = new Vector2(185f, FlightHUDStyle.BottomSafeMargin);
             host.sizeDelta = new Vector2(120f, 206f);
 
             Image panel = gameObject.AddComponent<Image>();
