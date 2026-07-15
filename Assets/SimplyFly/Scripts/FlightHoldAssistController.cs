@@ -5,6 +5,8 @@ namespace SimplyFly.GroundOps
 {
     public sealed class FlightHoldAssistController : MonoBehaviour
     {
+        private const float FeetPerMinutePerMeterPerSecond = 196.8504f;
+
         public enum AssistMode
         {
             None,
@@ -45,7 +47,7 @@ namespace SimplyFly.GroundOps
         [Range(1f, 2f)] [SerializeField] private float vsHoldLowSpeedAuthorityBoost = 1.45f;
         [Range(0f, 8f)] [SerializeField] private float vsHoldMaxClimbRate = 3f;
         [Range(-8f, 0f)] [SerializeField] private float vsHoldMaxDescentRate = -3f;
-        [Min(0.05f)] [SerializeField] private float vsHoldTargetStep = 0.25f;
+        [Min(100f)] [SerializeField] private float vsHoldTargetStepFeetPerMinute = 100f;
         [Min(1f)] [SerializeField] private float mouseScrollThreshold = 1f;
         [Tooltip("Optional low-speed cutoff. Disabled by default; stall protection still applies.")]
         [SerializeField] private bool vsHoldDisengageOnLowSpeed;
@@ -125,7 +127,9 @@ namespace SimplyFly.GroundOps
 
                 if (increase ^ decrease)
                     AdjustVerticalSpeedTarget(
-                        increase ? vsHoldTargetStep : -vsHoldTargetStep);
+                        increase
+                            ? vsHoldTargetStepFeetPerMinute
+                            : -vsHoldTargetStepFeetPerMinute);
             }
 
             if (messageTimer > 0f)
@@ -279,10 +283,8 @@ namespace SimplyFly.GroundOps
             bool switching = PitchHoldActive;
             ActiveMode = AssistMode.VerticalSpeedHold;
             CapturedVerticalSpeed = flightPhysics.VerticalSpeed;
-            TargetVerticalSpeed = Mathf.Clamp(
-                CapturedVerticalSpeed,
-                vsHoldMaxDescentRate,
-                vsHoldMaxClimbRate);
+            TargetVerticalSpeed = SnapVerticalSpeedTarget(
+                CapturedVerticalSpeed);
             VerticalSpeedTargetClamped =
                 !Mathf.Approximately(
                     CapturedVerticalSpeed,
@@ -294,27 +296,51 @@ namespace SimplyFly.GroundOps
                 -vsHoldIntegralLimit,
                 vsHoldIntegralLimit);
             DisengageReason = string.Empty;
-            string captureMessage = VerticalSpeedTargetClamped
-                ? $"VS HOLD ON - {CapturedVerticalSpeed:+0.0;-0.0;0.0} LIMITED TO {TargetVerticalSpeed:+0.0;-0.0;0.0} m/s"
-                : $"VS HOLD ON - TARGET {TargetVerticalSpeed:+0.0;-0.0;0.0} m/s";
+            float targetFeetPerMinute =
+                TargetVerticalSpeed * FeetPerMinutePerMeterPerSecond;
+            string captureMessage =
+                $"VS HOLD ON - TARGET {targetFeetPerMinute:+0;-0;0} FT/MIN";
             ShowMessage(switching
                 ? $"PITCH HOLD OFF - {captureMessage}"
                 : captureMessage);
         }
 
-        public void AdjustVerticalSpeedTarget(float delta)
+        public void AdjustVerticalSpeedTarget(float deltaFeetPerMinute)
         {
-            if (!VerticalSpeedHoldActive || Mathf.Approximately(delta, 0f))
+            if (!VerticalSpeedHoldActive ||
+                Mathf.Approximately(deltaFeetPerMinute, 0f))
                 return;
 
-            TargetVerticalSpeed = Mathf.Clamp(
-                TargetVerticalSpeed + delta,
-                vsHoldMaxDescentRate,
-                vsHoldMaxClimbRate);
+            float step = Mathf.Max(100f, vsHoldTargetStepFeetPerMinute);
+            float currentFeetPerMinute = Mathf.Round(
+                TargetVerticalSpeed * FeetPerMinutePerMeterPerSecond / step) * step;
+            float targetFeetPerMinute = currentFeetPerMinute +
+                Mathf.Sign(deltaFeetPerMinute) * step;
+            TargetVerticalSpeed = ClampFeetPerMinuteTarget(targetFeetPerMinute);
             VerticalSpeedTargetClamped = false;
             CapturedVerticalSpeed = TargetVerticalSpeed;
             ShowMessage(
-                $"VS TARGET {TargetVerticalSpeed:+0.00;-0.00;0.00} m/s");
+                $"VS TARGET {TargetVerticalSpeed * FeetPerMinutePerMeterPerSecond:+0;-0;0} FT/MIN");
+        }
+
+        private float SnapVerticalSpeedTarget(float metersPerSecond)
+        {
+            float step = Mathf.Max(100f, vsHoldTargetStepFeetPerMinute);
+            float feetPerMinute = Mathf.Round(
+                metersPerSecond * FeetPerMinutePerMeterPerSecond / step) * step;
+            return ClampFeetPerMinuteTarget(feetPerMinute);
+        }
+
+        private float ClampFeetPerMinuteTarget(float feetPerMinute)
+        {
+            float step = Mathf.Max(100f, vsHoldTargetStepFeetPerMinute);
+            float minimumFeetPerMinute = Mathf.Ceil(
+                vsHoldMaxDescentRate * FeetPerMinutePerMeterPerSecond / step) * step;
+            float maximumFeetPerMinute = Mathf.Floor(
+                vsHoldMaxClimbRate * FeetPerMinutePerMeterPerSecond / step) * step;
+            return Mathf.Clamp(
+                feetPerMinute, minimumFeetPerMinute, maximumFeetPerMinute) /
+                FeetPerMinutePerMeterPerSecond;
         }
 
         private bool ShouldDisengageForManualInput()
