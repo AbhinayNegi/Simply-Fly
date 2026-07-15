@@ -61,7 +61,8 @@ namespace SimplyFly.GroundOps
         private void Update()
         {
             Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && keyboard[toggleKey].wasPressedThisFrame)
+            if (IsFlightSchoolSession() && keyboard != null &&
+                keyboard[toggleKey].wasPressedThisFrame)
             {
                 SetVisible(!visible);
             }
@@ -274,7 +275,7 @@ namespace SimplyFly.GroundOps
         {
             if (panel != null)
                 panel.style.display =
-                    visible &&
+                    visible && IsFlightSchoolSession() &&
                     (navigationUI == null || !navigationUI.MapVisible)
                         ? DisplayStyle.Flex
                         : DisplayStyle.None;
@@ -282,9 +283,20 @@ namespace SimplyFly.GroundOps
 
         public void SetVisible(bool value)
         {
-            visible = value;
-            SetModalPause(value);
+            // The planner also uses L. Never let that same key press arm a
+            // hidden lesson modal during Free Flight or while its pause menu
+            // is open.
+            visible = value && IsFlightSchoolSession();
+            SetModalPause(visible);
             ApplyVisibility();
+        }
+
+        private bool IsFlightSchoolSession()
+        {
+            return gameFlow != null &&
+                (gameFlow.Mode == SimplyFlyGameMode.FlightSchool ||
+                 (gameFlow.Mode == SimplyFlyGameMode.Paused &&
+                  gameFlow.ActiveFlightMode == SimplyFlyGameMode.FlightSchool));
         }
 
         private void SetModalPause(bool pause)
@@ -314,6 +326,14 @@ namespace SimplyFly.GroundOps
 
         private void HandleGameModeChanged()
         {
+            if (!IsFlightSchoolSession())
+            {
+                visible = false;
+                SetModalPause(false);
+                ApplyVisibility();
+                return;
+            }
+
             // Resuming from the Escape menu must not unpause gameplay while
             // the lesson modal is still covering the flight view.
             if (visible && gameFlow != null &&
