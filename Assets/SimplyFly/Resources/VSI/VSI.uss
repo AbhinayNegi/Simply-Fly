@@ -2,7 +2,7 @@
     position: absolute;
     right: 18px;
     bottom: 12px;
-    width: 250px;
+    width: 258px;
     height: 360px;
 }
 
@@ -78,15 +78,22 @@
 .vsi-marker-line {
     position: absolute;
     left: 100px;
-    width: 30px;
+    width: 18px;
     height: 3px;
     border-radius: 2px;
     background-color: rgb(34, 217, 240);
 }
 
+.vsi-marker-stem {
+    position: absolute;
+    left: 99px;
+    width: 2px;
+    background-color: rgb(34, 217, 240);
+}
+
 .vsi-marker-triangle {
     position: absolute;
-    left: 111px;
+    left: 112px;
     width: 13px;
     height: 18px;
     -unity-background-scale-mode: scale-to-fit;
@@ -94,29 +101,29 @@
 
 .vsi-readout-box {
     position: absolute;
-    left: 0;
-    width: 110px;
-    height: 72px;
+    left: -18px;
+    width: 118px;
+    height: 68px;
+    padding: 6px 8px;
     border-radius: 2px;
     border-width: 1px;
     border-color: rgb(34, 217, 240);
-    background-color: rgba(4, 22, 25, 0.88);
+    background-color: rgba(5, 23, 31, 0.96);
     align-items: center;
     justify-content: center;
 }
 
 .vsi-readout-value {
-    font-size: 27px;
+    font-size: 28px;
     -unity-font-style: bold;
     color: rgb(34, 217, 240);
     white-space: nowrap;
 }
 
 .vsi-readout-unit {
-    margin-top: -3px;
-    font-size: 12px;
+    margin-top: 0;
+    font-size: 13px;
     -unity-font-style: bold;
     letter-spacing: 1px;
-    color: rgb(34, 217, 240);
-    opacity: 0.88;
+    color: rgba(224, 242, 255, 0.94);
 }

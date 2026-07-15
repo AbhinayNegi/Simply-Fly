@@ -38,6 +38,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private BrakeStatusHUD brakeStatus;
         [SerializeField] private FlightPathMarkerHUD flightPathMarker;
         [SerializeField] private RunwayAlignmentHUD runwayAlignment;
+        [SerializeField] private ApproachGuidanceHUD approachGuidanceHUD;
         [SerializeField] private FlightHUDInstrument powerInstrument;
         [SerializeField] private EngineInstrumentController engineInstrument;
         [SerializeField] private FlightHUDInstrument attitudeInstrument;
@@ -80,7 +81,7 @@ namespace SimplyFly.GroundOps
             EnsureFlapsInstrument();
             EnsureBrakeStatus();
             EnsureFlightPathMarker();
-            EnsureRunwayAlignment();
+            EnsureApproachGuidance();
             EnsureEngineInstrument();
             EnsureMiniAttitude();
             EnsureHoldAssistStyle();
@@ -160,6 +161,31 @@ namespace SimplyFly.GroundOps
                 FindAnyObjectByType<NavigationManager>(), flightPhysics);
         }
 
+        private void EnsureApproachGuidance()
+        {
+            NavigationManager navigation = FindAnyObjectByType<NavigationManager>();
+            if (approachGuidanceHUD == null)
+                approachGuidanceHUD =
+                    GetComponentInChildren<ApproachGuidanceHUD>(true);
+            if (approachGuidanceHUD == null)
+            {
+                GameObject go = new("Approach Guidance HUD",
+                    typeof(UnityEngine.UIElements.UIDocument));
+                go.transform.SetParent(transform, false);
+                approachGuidanceHUD = go.AddComponent<ApproachGuidanceHUD>();
+            }
+            approachGuidanceHUD.Bind(navigation, flightPhysics);
+
+            // Retire the previous orange runway-perspective guidance.
+            if (runwayAlignment == null)
+                runwayAlignment = GetComponent<RunwayAlignmentHUD>();
+            if (runwayAlignment != null)
+            {
+                runwayAlignment.SetSettingEnabled(false);
+                runwayAlignment.enabled = false;
+            }
+        }
+
         private void EnsureEngineInstrument()
         {
             if (engineInstrument == null && powerInstrument != null)
@@ -219,8 +245,11 @@ namespace SimplyFly.GroundOps
         public void SetFlightPathMarkerEnabled(bool enabled) =>
             flightPathMarker?.SetSettingEnabled(enabled);
 
-        public void SetRunwayAlignmentEnabled(bool enabled) =>
-            runwayAlignment?.SetSettingEnabled(enabled);
+        public void SetRunwayAlignmentEnabled(bool enabled)
+        {
+            approachGuidanceHUD?.SetSettingEnabled(enabled);
+            runwayAlignment?.SetSettingEnabled(false);
+        }
 
         private void EnsureVerticalSpeedIndicator()
         {
@@ -481,32 +510,25 @@ namespace SimplyFly.GroundOps
             // it when a hold mode becomes active.
             holdAssistLabel.gameObject.SetActive(true);
 
-            const float FeetPerMeter = 3.28084f;
-            float targetVerticalSpeedFeetPerSecond =
-                holdAssist.TargetVerticalSpeed * FeetPerMeter;
-            float capturedVerticalSpeedFeetPerSecond =
-                holdAssist.CapturedVerticalSpeed * FeetPerMeter;
+            const float FeetPerMinutePerMeterPerSecond = 196.8504f;
+            float targetVerticalSpeedFeetPerMinute = Mathf.Round(
+                holdAssist.TargetVerticalSpeed *
+                FeetPerMinutePerMeterPerSecond);
 
             string text = holdAssist.PitchHoldActive
-                ? $"PITCH HOLD\nTARGET {holdAssist.TargetPitch:+0.0;-0.0;0.0}°"
-                : holdAssist.VerticalSpeedTargetClamped
-                    ? $"VS HOLD\nTARGET {targetVerticalSpeedFeetPerSecond:+0.0;-0.0;0.0} FT/S  " +
-                      $"(CAPTURED {capturedVerticalSpeedFeetPerSecond:+0.0;-0.0;0.0})"
-                    : $"VS HOLD\nTARGET {targetVerticalSpeedFeetPerSecond:+0.0;-0.0;0.0} FT/S";
+                ? $"<color=#E0F2FF>PITCH HOLD</color>\n" +
+                  $"<color=#26F2FF>TARGET {holdAssist.TargetPitch:+0.0;-0.0;0.0}°</color>"
+                : $"<color=#E0F2FF>VS HOLD</color>\n" +
+                  $"<color=#26F2FF>TARGET {targetVerticalSpeedFeetPerMinute:+0;-0;0} FT/MIN</color>";
             if (holdAssist.VerticalSpeedHoldActive &&
                 holdAssist.VerticalSpeedEnergyLimited)
-                text += "\nADD POWER";
+                text += "\n<color=#FFA811>ADD POWER</color>";
 
             bool visible = !string.IsNullOrEmpty(text);
             holdPanel.SetActive(visible);
             if (!visible) return;
             holdAssistLabel.text = text;
-            holdAssistLabel.color =
-                text.Contains("DISENGAGED") ||
-                text.Contains("UNAVAILABLE") ||
-                text.Contains("DISABLED")
-                    ? cautionColor
-                    : safeColor;
+            holdAssistLabel.color = FlightHUDStyle.White;
         }
     }
 }

@@ -40,7 +40,8 @@ namespace SimplyFly.GroundOps
         [SerializeField] private bool advancedForcesByDefault;
 
         [Header("Display tuning")]
-        [Range(0.5f, 3f)] [SerializeField] private float angleDisplayScale = 1.35f;
+        [Range(0.5f, 3f)] [SerializeField] private float angleDisplayScale = 1f;
+        [Range(5f, 90f)] [SerializeField] private float maximumDisplayAngle = 40f;
         [Min(0.1f)] [SerializeField] private float trendResponse = 2.5f;
         [Min(0.1f)] [SerializeField] private float speedTrendDeadband = 0.35f;
         [Min(0.1f)] [SerializeField] private float verticalTrendDeadband = 0.25f;
@@ -50,12 +51,14 @@ namespace SimplyFly.GroundOps
         private bool advancedVisible;
         private bool settingEnabled = true;
         private bool navigationOverlaySuppressed;
+        private bool visibilityForcedByToggle;
         private float previousAirspeed;
         private float smoothedSpeedTrend;
         private bool speedInitialized;
 
         private void Awake()
         {
+            ApplyPitchTrajectoryDesign();
             visible = visibleByDefault;
             advancedVisible = advancedForcesByDefault;
             ApplyVisibility();
@@ -68,7 +71,10 @@ namespace SimplyFly.GroundOps
             {
                 if (keyboard[toggleKey].wasPressedThisFrame)
                 {
-                    visible = !visible;
+                    bool currentlyShown = panelGroup != null &&
+                                          panelGroup.alpha > 0.5f;
+                    visible = !currentlyShown;
+                    visibilityForcedByToggle = visible;
                     ApplyVisibility();
                 }
                 if (keyboard[advancedToggleKey].wasPressedThisFrame)
@@ -103,14 +109,16 @@ namespace SimplyFly.GroundOps
 
         private void UpdateAttitudeView()
         {
-            float pitch = flightPhysics.PitchAngle;
-            float flightPath = flightPhysics.FlightPathAngle;
+            float pitch = Mathf.Clamp(
+                flightPhysics.PitchAngle, -maximumDisplayAngle, maximumDisplayAngle);
+            float flightPath = Mathf.Clamp(
+                flightPhysics.FlightPathAngle, -maximumDisplayAngle, maximumDisplayAngle);
             if (aircraftSilhouette != null)
                 aircraftSilhouette.localRotation = Quaternion.Euler(
-                    0f, 0f, pitch * angleDisplayScale);
+                    0f, 0f, -pitch * angleDisplayScale);
             if (flightPathArrow != null)
                 flightPathArrow.localRotation = Quaternion.Euler(
-                    0f, 0f, flightPath * angleDisplayScale);
+                    0f, 0f, -flightPath * angleDisplayScale);
 
             if (elevatorMarker != null)
             {
@@ -134,6 +142,180 @@ namespace SimplyFly.GroundOps
                 position.y = normalizedTrim * 30f;
                 trimMarker.anchoredPosition = position;
             }
+        }
+
+        private void ApplyPitchTrajectoryDesign()
+        {
+            RectTransform panel = transform as RectTransform;
+            if (panel != null)
+            {
+                // Bottom-right instrument stack: sit immediately left of the VSI.
+                panel.anchorMin = new Vector2(1f, 0f);
+                panel.anchorMax = new Vector2(1f, 0f);
+                panel.pivot = new Vector2(1f, 0f);
+                // BrakeStatusHUD occupies right offsets 270..408. Keep a
+                // deliberate 24 px gap to its left on the same bottom row.
+                // Keep the low visual position while leaving enough clearance
+                // for the 150x64 aircraft to rotate through the full +/-40°.
+                panel.anchoredPosition = new Vector2(-432f, 24f);
+                panel.sizeDelta = new Vector2(300f, 150f);
+            }
+
+            Image panelImage = GetComponent<Image>();
+            if (panelImage != null)
+            {
+                panelImage.color = Color.clear;
+                panelImage.raycastTarget = false;
+            }
+
+            Outline panelOutline = GetComponent<Outline>();
+            if (panelOutline != null) panelOutline.enabled = false;
+
+            RectTransform diagram = transform.Find("Diagram") as RectTransform;
+            if (diagram != null)
+            {
+                diagram.anchorMin = new Vector2(0.5f, 0.5f);
+                diagram.anchorMax = new Vector2(0.5f, 0.5f);
+                diagram.pivot = new Vector2(0.5f, 0.5f);
+                diagram.anchoredPosition = Vector2.zero;
+                diagram.sizeDelta = new Vector2(300f, 150f);
+            }
+
+            RectTransform horizon = diagram == null
+                ? null : diagram.Find("Horizon") as RectTransform;
+            SetElementRect(horizon, Vector2.zero, new Vector2(270f, 2f),
+                new Color(0.302f, 0.847f, 0.91f, 0.92f));
+            AddContrastOutline(
+                horizon == null ? null : horizon.GetComponent<Graphic>(), 1f);
+            SetDiagramElementVisible(diagram, "Elevator Track", false);
+            SetDiagramElementVisible(diagram, "Trim Track", false);
+
+            if (flightPathArrow != null)
+            {
+                flightPathArrow.anchorMin = new Vector2(0.5f, 0.5f);
+                flightPathArrow.anchorMax = new Vector2(0.5f, 0.5f);
+                flightPathArrow.pivot = new Vector2(1f, 0.5f);
+                flightPathArrow.anchoredPosition = Vector2.zero;
+                // At the -40° display limit, 84 px keeps the marker inside the
+                // viewport while preserving a clearly readable path vector.
+                flightPathArrow.sizeDelta = new Vector2(112f, 1.5f);
+                Image line = flightPathArrow.GetComponent<Image>();
+                if (line != null)
+                {
+                    line.color = new Color(0.549f, 0.91f, 0.478f, 0.95f);
+                    AddContrastOutline(line, 1f);
+                }
+
+                foreach (Transform child in flightPathArrow)
+                    child.gameObject.SetActive(false);
+                CreateTrajectoryDiamond(flightPathArrow);
+            }
+
+            if (aircraftSilhouette != null)
+            {
+                aircraftSilhouette.anchorMin = new Vector2(0.5f, 0.5f);
+                aircraftSilhouette.anchorMax = new Vector2(0.5f, 0.5f);
+                // The artwork's fuselage centerline is 37% up from its bottom.
+                // Using that point as the pivot keeps the horizon out of the roof.
+                aircraftSilhouette.pivot = new Vector2(0.5f, 0.37f);
+                aircraftSilhouette.anchoredPosition = Vector2.zero;
+                aircraftSilhouette.sizeDelta = new Vector2(150f, 64f);
+                aircraftSilhouette.localScale = new Vector3(-1f, 1f, 1f);
+
+                foreach (Transform child in aircraftSilhouette)
+                    child.gameObject.SetActive(false);
+                Image aircraftImage = aircraftSilhouette.GetComponent<Image>();
+                if (aircraftImage != null)
+                {
+                    aircraftImage.enabled = true;
+                    aircraftImage.color = Color.white;
+                    aircraftImage.preserveAspect = true;
+                    aircraftImage.raycastTarget = false;
+                    aircraftImage.sprite = Resources.Load<Sprite>(
+                        "PitchTrajectoryHUD/plane_icon");
+                    AddContrastOutline(aircraftImage, 1.5f);
+                }
+            }
+
+            SetLegacyDetailsVisible(false);
+        }
+
+        private static void SetElementRect(
+            RectTransform rect, Vector2 position, Vector2 size, Color color)
+        {
+            if (rect == null) return;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            Image image = rect.GetComponent<Image>();
+            if (image != null) image.color = color;
+        }
+
+        private static void SetDiagramElementVisible(
+            RectTransform diagram, string elementName, bool visible)
+        {
+            Transform element = diagram == null ? null : diagram.Find(elementName);
+            if (element != null) element.gameObject.SetActive(visible);
+        }
+
+        private static void AddContrastOutline(Graphic graphic, float distance)
+        {
+            if (graphic == null) return;
+            Outline outline = graphic.GetComponent<Outline>();
+            if (outline == null)
+                outline = graphic.gameObject.AddComponent<Outline>();
+            outline.enabled = true;
+            outline.effectColor = new Color(0.015f, 0.035f, 0.055f, 0.92f);
+            outline.effectDistance = new Vector2(distance, -distance);
+            outline.useGraphicAlpha = true;
+        }
+
+        private static void CreateTrajectoryDiamond(RectTransform line)
+        {
+            const string markerName = "Trajectory Marker";
+            Transform existing = line.Find(markerName);
+            GameObject marker = existing == null
+                ? new GameObject(markerName, typeof(RectTransform),
+                    typeof(CanvasRenderer), typeof(Image))
+                : existing.gameObject;
+            marker.SetActive(true);
+            RectTransform rect = marker.GetComponent<RectTransform>();
+            rect.SetParent(line, false);
+            rect.anchorMin = new Vector2(0f, 0.5f);
+            rect.anchorMax = new Vector2(0f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(9f, 9f);
+            rect.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            Image image = marker.GetComponent<Image>();
+            image.color = new Color(0.549f, 0.91f, 0.478f, 1f);
+            image.raycastTarget = false;
+            Outline outline = marker.GetComponent<Outline>();
+            if (outline == null) outline = marker.AddComponent<Outline>();
+            outline.effectColor = new Color(0.043f, 0.071f, 0.125f, 0.95f);
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = true;
+        }
+
+        private void SetLegacyDetailsVisible(bool show)
+        {
+            if (advancedGroup != null) advancedGroup.gameObject.SetActive(show);
+            SetActive(elevatorMarker, show);
+            SetActive(trimMarker, show);
+            SetActive(attitudeLabel, show);
+            SetActive(motionLabel, show);
+            SetActive(configurationLabel, show);
+            SetActive(guidanceLabel, show);
+            SetActive(modeLabel, show);
+            Transform title = transform.Find("Title");
+            if (title != null) title.gameObject.SetActive(show);
+        }
+
+        private static void SetActive(Component component, bool active)
+        {
+            if (component != null) component.gameObject.SetActive(active);
         }
 
         private void UpdateLabels()
@@ -263,19 +445,20 @@ namespace SimplyFly.GroundOps
 
         private void ApplyVisibility()
         {
+            bool showPanel = visible &&
+                             (visibilityForcedByToggle || settingEnabled) &&
+                             (visibilityForcedByToggle ||
+                              !navigationOverlaySuppressed);
             if (panelGroup != null)
             {
-                panelGroup.alpha =
-                    visible && settingEnabled && !navigationOverlaySuppressed
-                        ? 1f : 0f;
+                panelGroup.alpha = showPanel ? 1f : 0f;
                 panelGroup.interactable = false;
                 panelGroup.blocksRaycasts = false;
             }
             if (advancedGroup != null)
             {
                 advancedGroup.alpha =
-                    visible && settingEnabled && advancedVisible &&
-                    !navigationOverlaySuppressed ? 1f : 0f;
+                    showPanel && advancedVisible ? 1f : 0f;
                 advancedGroup.interactable = false;
                 advancedGroup.blocksRaycasts = false;
             }

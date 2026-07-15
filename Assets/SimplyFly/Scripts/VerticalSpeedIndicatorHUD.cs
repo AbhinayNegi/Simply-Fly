@@ -22,6 +22,9 @@ namespace SimplyFly.GroundOps
         private const float ScaleHeight = 314f;
         private const float ScaleTop = 38f;
         private const float RailLeft = 28f;
+        private const float ReadoutHeight = 68f;
+        private const float ReadoutEdgePadding = 4f;
+        private const float RootHeight = 360f;
         private const float Smoothing = 0.15f;
 
         [SerializeField] private FlightPhysicsController flightPhysics;
@@ -31,6 +34,7 @@ namespace SimplyFly.GroundOps
         private VisualElement tape;
         private VisualElement marker;
         private VisualElement markerTriangle;
+        private VisualElement markerStem;
         private VisualElement readoutBox;
         private Label readoutValue;
         private float displayedValue;
@@ -85,6 +89,7 @@ namespace SimplyFly.GroundOps
             tape = root.Q<VisualElement>("tape-container");
             marker = root.Q<VisualElement>("marker-line");
             markerTriangle = root.Q<VisualElement>("marker-triangle");
+            markerStem = root.Q<VisualElement>("marker-stem");
             readoutBox = root.Q<VisualElement>("readout-box");
             readoutValue = root.Q<Label>("readout-value");
 
@@ -138,7 +143,20 @@ namespace SimplyFly.GroundOps
             float y = ScaleTop + YForValue(clamped);
             marker.style.top = y - 1.5f;
             if (markerTriangle != null) markerTriangle.style.top = y - 9f;
-            readoutBox.style.top = y - 36f;
+            float desiredReadoutTop = y - ReadoutHeight * 0.5f;
+            float readoutTop = Mathf.Clamp(
+                desiredReadoutTop,
+                ReadoutEdgePadding,
+                RootHeight - ReadoutHeight - ReadoutEdgePadding);
+            readoutBox.style.top = readoutTop;
+            if (markerStem != null)
+            {
+                float readoutCenter = readoutTop + ReadoutHeight * 0.5f;
+                markerStem.style.top = Mathf.Min(y, readoutCenter);
+                markerStem.style.height = Mathf.Abs(y - readoutCenter);
+                markerStem.style.display = Mathf.Abs(y - readoutCenter) > 1f
+                    ? DisplayStyle.Flex : DisplayStyle.None;
+            }
 
             float rounded = Mathf.Round(displayedValue);
             if (Mathf.Abs(rounded) < 5f) rounded = 0f;

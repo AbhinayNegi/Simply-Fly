@@ -131,9 +131,11 @@ namespace SimplyFly.GroundOps
         {
             if (root != null) return;
             root = Rect("Runway Alignment Guidance", transform);
-            root.anchorMin = root.anchorMax = new Vector2(0.5f, 0f);
-            root.pivot = new Vector2(0.5f, 0f);
-            root.anchoredPosition = new Vector2(0f, 72f);
+            root.anchorMin = root.anchorMax = Vector2.one;
+            root.pivot = Vector2.one;
+            // Replace the old top-right lateral helper, below the glideslope
+            // panel and left of the reserved altitude/VSI instrument rail.
+            root.anchoredPosition = new Vector2(-200f, -228f);
             root.sizeDelta = new Vector2(440f, 126f);
             group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;

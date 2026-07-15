@@ -1,0 +1,44 @@
+.approach-panel {
+    position: absolute;
+    top: 24px;
+    right: 18px;
+    width: 360px;
+    padding: 14px 16px 16px 16px;
+    background-color: rgba(10, 16, 28, 0.86);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+}
+
+.approach-header {
+    -unity-text-align: middle-center;
+    font-size: 11px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: rgba(226, 232, 240, 0.7);
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.approach-columns { flex-direction: row; }
+.approach-column { flex-grow: 1; flex-basis: 0; align-items: center; }
+.approach-divider { width: 1px; background-color: rgba(255,255,255,0.08); margin: 2px 0; }
+.approach-label { font-size: 10.5px; -unity-font-style: bold; letter-spacing: 1.2px; color: rgba(148,163,184,0.85); margin-bottom: 4px; }
+.approach-value { font-size: 26px; -unity-font-style: bold; white-space: nowrap; }
+.glideslope-value { color: #5EEAD4; }
+.centerline-value { color: #E2E8F0; }
+.approach-status { font-size: 10.5px; -unity-font-style: bold; letter-spacing: 1px; margin-top: 2px; margin-bottom: 6px; }
+
+.beam-container { width: 100%; height: 64px; position: relative; }
+.beam-line { position: absolute; left: 0; top: 44px; width: 100%; height: 5px; background-color: rgba(148,163,184,0.4); border-radius: 3px; rotate: -10deg; }
+.aircraft-fuselage { position: absolute; width: 14px; height: 2px; translate: -50% -50%; }
+.aircraft-ring { position: absolute; width: 14px; height: 14px; translate: -50% -50%; border-radius: 7px; border-width: 1.5px; }
+.aircraft-dot { position: absolute; width: 9px; height: 9px; translate: -50% -50%; border-radius: 4.5px; }
+
+.centerline-track { width: 100%; height: 6px; background-color: rgba(148,163,184,0.25); border-radius: 3px; position: relative; margin-top: 34px; }
+.track-center-tick { position: absolute; left: 50%; top: -3px; width: 2px; height: 12px; background-color: rgba(226,232,240,0.7); }
+.track-marker { position: absolute; top: -1px; width: 8px; height: 8px; translate: -50% 0; border-radius: 2px; }
+.track-labels { flex-direction: row; justify-content: space-between; width: 100%; margin-top: 6px; }
+.track-labels Label { font-size: 9.5px; -unity-font-style: bold; color: rgba(148,163,184,0.75); }

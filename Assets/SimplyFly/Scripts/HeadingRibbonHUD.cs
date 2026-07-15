@@ -125,7 +125,9 @@ namespace SimplyFly.GroundOps
             valueBox.pivot = new Vector2(0.5f, 0f);
             valueBox.anchoredPosition = new Vector2(0f, 64f);
             valueBox.sizeDelta = new Vector2(112f, 58f);
-            valueBox.gameObject.AddComponent<Image>().color = FlightHUDStyle.ValueBox;
+            Image valueBackground = valueBox.gameObject.AddComponent<Image>();
+            valueBackground.color = FlightHUDStyle.ValueBox;
+            FlightHUDStyle.ApplyRoundedPanel(valueBackground);
             Outline outline = valueBox.gameObject.AddComponent<Outline>();
             outline.effectColor = new Color(0.15f, 0.95f, 1f, 0.95f);
             outline.effectDistance = new Vector2(1f, -1f);
@@ -145,9 +147,10 @@ namespace SimplyFly.GroundOps
             headingCaption.rectTransform.sizeDelta = new Vector2(0f, 14f);
 
             Color magenta = new Color(1f, 0.08f, 0.78f, 1f);
-            courseMarker = CreateRect("Course Marker", viewport);
+            courseMarker = CreateRect("Course Marker", host);
             courseMarker.anchorMin = courseMarker.anchorMax = new Vector2(0.5f, 0f);
             courseMarker.pivot = new Vector2(0.5f, 0f);
+            courseMarker.anchoredPosition = new Vector2(0f, 4f);
             courseMarker.sizeDelta = new Vector2(8f, 48f);
             courseMarker.gameObject.AddComponent<Image>().color = magenta;
             courseMarkerGroup = courseMarker.gameObject.AddComponent<CanvasGroup>();
@@ -155,9 +158,13 @@ namespace SimplyFly.GroundOps
             courseLabel.alignment = TextAlignmentOptions.Center;
             courseLabel.color = magenta;
             courseLabel.rectTransform.anchorMin = courseLabel.rectTransform.anchorMax = new Vector2(0.5f, 1f);
-            courseLabel.rectTransform.anchoredPosition = new Vector2(0f, 12f);
+            // Keep the selected-course number inside the compass ribbon. At
+            // small heading errors, placing it above the marker collides with
+            // the current-heading value box.
+            courseLabel.rectTransform.anchoredPosition = new Vector2(0f, -12f);
             courseLabel.rectTransform.sizeDelta = new Vector2(70f, 28f);
             AddTextContrast(courseLabel, magenta);
+            courseLabel.gameObject.SetActive(false);
 
             leftCourseArrow = CreateText("Course Left", host, 44f, FontStyles.Bold);
             leftCourseArrow.text = "<<"; leftCourseArrow.color = magenta;
@@ -210,9 +217,7 @@ namespace SimplyFly.GroundOps
             courseMarker.gameObject.SetActive(onScreen);
             if (onScreen)
             {
-                courseMarker.anchoredPosition = new Vector2(x, 0f);
-                int normalized = ((Mathf.RoundToInt(courseHeading) % 360) + 360) % 360;
-                courseLabel.text = normalized.ToString("000");
+                courseMarker.anchoredPosition = new Vector2(x, 4f);
             }
             else if (x < 0f) leftCourseArrow.gameObject.SetActive(true);
             else rightCourseArrow.gameObject.SetActive(true);

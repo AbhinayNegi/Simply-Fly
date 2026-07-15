@@ -10,6 +10,7 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
+        <ui:VisualElement name="marker-stem" class="vsi-marker-stem" />
         <ui:VisualElement name="marker-line" class="vsi-marker-line" />
         <ui:VisualElement name="marker-triangle" class="vsi-marker-triangle" />
 

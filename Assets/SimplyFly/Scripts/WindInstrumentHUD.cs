@@ -111,15 +111,14 @@ namespace SimplyFly.GroundOps
         private void Build()
         {
             RectTransform host = (RectTransform)transform;
-            host.anchorMin = host.anchorMax = new Vector2(1f, 1f);
-            host.pivot = new Vector2(1f, 1f);
-            // Altitude now occupies the middle-right band, so wind can use the
-            // cleared top-right corner.
-            host.anchoredPosition = new Vector2(-20f, -20f);
+            host.anchorMin = host.anchorMax = new Vector2(0f, 1f);
+            host.pivot = new Vector2(0f, 1f);
+            host.anchoredPosition = new Vector2(24f, -24f);
             host.sizeDelta = new Vector2(176f, 174f);
 
             Image panel = gameObject.AddComponent<Image>();
             panel.color = FlightHUDStyle.SecondaryPanel;
+            FlightHUDStyle.ApplyRoundedPanel(panel);
             FlightHUDStyle.AddOutline(gameObject);
 
             TMP_Text title = MakeText("Title", 14f, FontStyles.Bold,

@@ -108,10 +108,16 @@ namespace SimplyFly.GroundOps
             if (keyboard == null) return;
             if (keyboard[UnityEngine.InputSystem.Key.L].wasPressedThisFrame)
             {
-                if (flow != null && flow.IsInFlight) OpenFlightPlanner();
-                else if (plannerOpen && flow != null &&
-                         flow.Mode == SimplyFlyGameMode.Paused)
-                    CloseFlightPlanner();
+                bool flightSchool = flow != null &&
+                    (flow.Mode == SimplyFlyGameMode.FlightSchool ||
+                     flow.ActiveFlightMode == SimplyFlyGameMode.FlightSchool);
+                if (!flightSchool)
+                {
+                    if (flow != null && flow.IsInFlight) OpenFlightPlanner();
+                    else if (plannerOpen && flow != null &&
+                             flow.Mode == SimplyFlyGameMode.Paused)
+                        CloseFlightPlanner();
+                }
             }
             if (keyboard[UnityEngine.InputSystem.Key.F9].wasPressedThisFrame)
             {

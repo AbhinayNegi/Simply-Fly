@@ -25,6 +25,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private ApproachGuidanceDisplayMode guidanceMode =
             ApproachGuidanceDisplayMode.TwoDHelpers;
         [SerializeField] private bool autoShowOnFinal = true;
+        [SerializeField] private Key infoToggleKey = Key.Tab;
         [SerializeField] private float sideViewShowDistanceKm = 4f;
         [SerializeField] private float topDownShowDistanceKm = 4f;
         [SerializeField] private float approachCorridorWidthFar = 250f;
@@ -88,6 +89,7 @@ namespace SimplyFly.GroundOps
         private Label trajectoryHudStatus;
         private Label modeToast;
         private bool mapVisible;
+        private bool infoPanelVisible;
         private bool plannerSuppressed;
         private bool verticalProfileVisible = true;
         private float smoothedHorizontalScale = 4000f;
@@ -109,6 +111,8 @@ namespace SimplyFly.GroundOps
         private void Update()
         {
             Keyboard keyboard = Keyboard.current;
+            if (keyboard != null && keyboard[infoToggleKey].wasPressedThisFrame)
+                infoPanelVisible = !infoPanelVisible;
             if (keyboard != null && keyboard[Key.M].wasPressedThisFrame)
             {
                 if (keyboard.leftShiftKey.isPressed ||
@@ -212,8 +216,12 @@ namespace SimplyFly.GroundOps
             root.Clear();
             root.pickingMode = PickingMode.Ignore;
 
-            navPanel = MakePanel(root, 18f, 18f, 350f, 150f);
-            navHeader = AddLabel(navPanel, "FLIGHT PLAN", 15, true);
+            navPanel = MakePanel(root, null, null, 500f, 256f);
+            navPanel.style.left = Length.Percent(50f);
+            navPanel.style.top = Length.Percent(50f);
+            navPanel.style.translate =
+                new Translate(Length.Percent(-50f), Length.Percent(-50f));
+            navHeader = AddLabel(navPanel, "FLIGHT PLAN  [TAB]", 15, true);
             navHeader.style.color = new Color(0.88f, 0.95f, 1f);
             navHeader.style.paddingBottom = 7f;
             navHeader.style.borderBottomWidth = 1f;
@@ -254,7 +262,8 @@ namespace SimplyFly.GroundOps
             mapPanel.Add(verticalProfile);
 
             sidePanel = MakePanel(root, null, 18f, 430f, 200f);
-            sidePanel.style.right = 18f;
+            // Reserve the right instrument rail for altitude and VSI.
+            sidePanel.style.right = 200f;
             AddLabel(sidePanel, "SIDE VIEW — GLIDESLOPE TRAINING", 14, true);
             glideProfile = new GlideProfileElement { navigation = navigation };
             glideProfile.style.height = 112f;
@@ -263,7 +272,7 @@ namespace SimplyFly.GroundOps
             sideStatus = AddLabel(sidePanel, "ON GLIDE", 13, true);
 
             topPanel = MakePanel(root, null, 228f, 390f, 200f);
-            topPanel.style.right = 18f;
+            topPanel.style.right = 200f;
             AddLabel(topPanel, "FINAL ALIGNMENT", 14, true);
             lateralProfile =
                 new LateralApproachElement { navigation = navigation };
@@ -305,7 +314,7 @@ namespace SimplyFly.GroundOps
                 gameFlow != null &&
                 gameFlow.Mode == SimplyFlyGameMode.FreeFlight;
             navPanel.style.display =
-                navigationHUDEnabled && (active || freeFlight) &&
+                infoPanelVisible && navigationHUDEnabled && (active || freeFlight) &&
                 !flightSchool && !mapVisible && !plannerSuppressed
                     ? DisplayStyle.Flex : DisplayStyle.None;
             mapPanel.style.display =
@@ -414,20 +423,11 @@ namespace SimplyFly.GroundOps
             bool aircraftOnApproachSide = Vector3.Dot(
                 navigation.AircraftPosition - navigation.SelectedRunwayThreshold,
                 selectedRunwayForward) < 0f;
-            bool sideVisible = ApproachHelperActive &&
-                               wants2D &&
-                               sideViewApproachHelperEnabled &&
-                               navigation.FinalApproachActive &&
-                               aircraftOnApproachSide &&
-                               (flightPhysics == null ||
-                                !flightPhysics.IsPhysicallyGrounded) &&
-                               navigation.DistanceToThreshold <=
-                               sideViewShowDistanceKm * 1000f;
-            bool topVisible = ApproachHelperActive &&
-                              wants2D &&
-                              topDownApproachHelperEnabled &&
-                              navigation.DistanceToThreshold <=
-                              topDownShowDistanceKm * 1000f;
+            // Replaced by the compact ApproachGuidanceHUD.
+            bool sideVisible = false;
+            // The standalone RunwayAlignmentHUD now occupies this slot and
+            // provides the same lateral guidance more clearly.
+            bool topVisible = false;
             bool trajectoryVisible = ApproachHelperActive &&
                                      wants3D &&
                                      trajectoryVisualizerEnabled;

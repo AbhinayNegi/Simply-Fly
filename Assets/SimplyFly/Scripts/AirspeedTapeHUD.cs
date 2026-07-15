@@ -35,7 +35,7 @@ namespace SimplyFly.GroundOps
             // Lift the airspeed tape into the free upper-left area so the two
             // instruments retain a clear visual gutter.
             RectTransform host = (RectTransform)transform;
-            host.anchoredPosition = new Vector2(host.anchoredPosition.x, 70f);
+            host.anchoredPosition = new Vector2(host.anchoredPosition.x, 40f);
             if (tape == null) tape = GetComponent<NumericTapeHUD>();
             if (tape == null) tape = gameObject.AddComponent<NumericTapeHUD>();
             tape.ConfigureAirspeedPresentation();

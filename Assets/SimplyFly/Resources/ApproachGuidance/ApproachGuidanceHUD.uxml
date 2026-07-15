@@ -1,0 +1,31 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+  <ui:VisualElement name="approach-guidance-panel" class="approach-panel">
+    <ui:Label text="APPROACH GUIDANCE" class="approach-header" />
+    <ui:VisualElement class="approach-columns">
+      <ui:VisualElement class="approach-column">
+        <ui:Label text="GLIDESLOPE ▾" class="approach-label" />
+        <ui:Label name="glideslope-value" text="+0.0°" class="approach-value glideslope-value" />
+        <ui:Label name="glideslope-status" text="ON PATH" class="approach-status" />
+        <ui:VisualElement name="beam-container" class="beam-container">
+          <ui:VisualElement class="beam-line" />
+          <ui:VisualElement name="aircraft-fuselage" class="aircraft-fuselage" />
+          <ui:VisualElement name="aircraft-ring" class="aircraft-ring" />
+          <ui:VisualElement name="aircraft-dot" class="aircraft-dot" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+      <ui:VisualElement class="approach-divider" />
+      <ui:VisualElement class="approach-column">
+        <ui:Label text="CENTERLINE ▾" class="approach-label" />
+        <ui:Label name="centerline-value" text="C 0.00 NM" class="approach-value centerline-value" />
+        <ui:Label name="centerline-status" text="ON CENTERLINE" class="approach-status" />
+        <ui:VisualElement class="centerline-track">
+          <ui:VisualElement class="track-center-tick" />
+          <ui:VisualElement name="track-marker" class="track-marker" />
+        </ui:VisualElement>
+        <ui:VisualElement class="track-labels">
+          <ui:Label text="L" /><ui:Label text="R" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+    </ui:VisualElement>
+  </ui:VisualElement>
+</ui:UXML>

@@ -291,39 +291,16 @@ namespace SimplyFly.GroundOps
                 rangeTrack.AddComponent<Image>().color = new Color(0.23f, 0.3f, 0.33f, 0.55f);
             }
 
-            GameObject centerLine = CreateUI("Center Marker", host);
+            GameObject centerLine = CreateUI("Readout Connector", host);
             RectTransform centerRect = (RectTransform)centerLine.transform;
             centerRect.anchorMin = centerRect.anchorMax = new Vector2(0f, 0.5f);
             centerRect.pivot = new Vector2(0f, 0.5f);
-            centerRect.anchoredPosition = new Vector2(calloutOnLeft ? 92f : 136f, 0f);
-            centerRect.sizeDelta = new Vector2(calloutOnLeft ? 12f : 18f, 3f);
+            // The callout and tape are separated by a fixed 10 px gutter.
+            // Draw only inside that gutter so the connector never crosses the tape.
+            centerRect.anchoredPosition = new Vector2(
+                altitudePresentation ? 90f : 140f, 0f);
+            centerRect.sizeDelta = new Vector2(10f, 3f);
             centerLine.AddComponent<Image>().color = accentColor;
-            if (airspeedPresentation)
-            {
-                RectTransform pointer = (RectTransform)CreateUI("IAS Marker Pointer", host).transform;
-                pointer.anchorMin = pointer.anchorMax = new Vector2(0f, 0.5f);
-                pointer.pivot = new Vector2(0.5f, 0.5f);
-                pointer.anchoredPosition = new Vector2(145f, 0f);
-                pointer.sizeDelta = new Vector2(12f, 18f);
-                TapeTriangleGraphic triangle = pointer.gameObject.AddComponent<TapeTriangleGraphic>();
-                triangle.PointsRight = true;
-                triangle.color = accentColor;
-                triangle.raycastTarget = false;
-            }
-            else if (altitudePresentation)
-            {
-                RectTransform pointer = (RectTransform)CreateUI("Altitude Marker Pointer", host).transform;
-                pointer.anchorMin = pointer.anchorMax = new Vector2(0f, 0.5f);
-                pointer.pivot = new Vector2(0.5f, 0.5f);
-                pointer.anchoredPosition = new Vector2(105f, 0f);
-                pointer.sizeDelta = new Vector2(14f, 20f);
-                TapeTriangleGraphic triangle = pointer.gameObject.AddComponent<TapeTriangleGraphic>();
-                triangle.PointsRight = true;
-                triangle.color = accentColor;
-                triangle.raycastTarget = false;
-                centerRect.anchoredPosition = new Vector2(102f, 0f);
-                centerRect.sizeDelta = new Vector2(44f, 3f);
-            }
 
             GameObject trendObject = CreateUI("Speed Trend", viewportRect);
             trendLine = (RectTransform)trendObject.transform;
@@ -338,10 +315,8 @@ namespace SimplyFly.GroundOps
             valueRect.pivot = new Vector2(0f, 0.5f);
             valueRect.anchoredPosition = new Vector2(
                 altitudePresentation ? -18f : calloutOnLeft ? 0f : 150f, 0f);
-            valueRect.sizeDelta = altitudePresentation
-                ? new Vector2(108f, 76f)
-                : new Vector2(102f, 68f);
-            valueBox.AddComponent<Image>().color = valueBoxColor;
+            valueRect.sizeDelta = new Vector2(108f, 76f);
+            valueBox.AddComponent<Image>().color = FlightHUDStyle.ValueBox;
             Outline valueOutline = valueBox.AddComponent<Outline>();
             valueOutline.effectColor = new Color(accentColor.r, accentColor.g, accentColor.b, 0.9f);
             valueOutline.effectDistance = new Vector2(1f, -1f);
@@ -352,7 +327,7 @@ namespace SimplyFly.GroundOps
             valueLabel.fontSizeMin = 21f;
             valueLabel.fontSizeMax = 30f;
             SetRect(valueLabel.rectTransform, new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 2f), new Vector2(84f, 30f));
+                new Vector2(0f, 2f), new Vector2(90f, 32f));
 
             TMP_Text iasLabel = CreateText("Value Label", valueRect, 12f, FontStyles.Bold);
             iasLabel.text = title == "AIRSPEED" ? "IAS" : title;

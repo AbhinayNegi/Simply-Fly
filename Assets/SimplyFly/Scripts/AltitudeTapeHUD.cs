@@ -24,7 +24,7 @@ namespace SimplyFly.GroundOps
             host.pivot = new Vector2(1f, 0.5f);
             // Match the airspeed tape's vertical alignment and height while
             // retaining the right-side safe margin.
-            host.anchoredPosition = new Vector2(-18f, 70f);
+            host.anchoredPosition = new Vector2(-18f, 40f);
             if (tape == null) tape = GetComponent<NumericTapeHUD>();
             if (tape == null) tape = gameObject.AddComponent<NumericTapeHUD>();
             tape.ConfigureAltitudePresentation();

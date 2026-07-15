@@ -10,6 +10,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightLessonSystem lessonSystem;
         [SerializeField] private SideViewTrainingAid pitchCoach;
         [SerializeField] private NavigationUI navigationUI;
+        [SerializeField] private GameFlowController gameFlow;
         [SerializeField] private Key toggleKey = Key.Y;
         [SerializeField] private bool visibleByDefault;
 
@@ -23,18 +24,29 @@ namespace SimplyFly.GroundOps
         private Label warningLabel;
         private VisualElement progressFill;
         private bool visible;
+        private bool pausedByLessonModal;
         private int lastLesson = -1;
         private int lastObjective = -1;
 
         private void OnEnable()
         {
+            // Older scenes serialized this as Y; Flight School now reserves L.
+            toggleKey = Key.L;
             if (lessonSystem == null)
                 lessonSystem = FindAnyObjectByType<FlightLessonSystem>();
             if (navigationUI == null)
                 navigationUI = FindAnyObjectByType<NavigationUI>();
             if (pitchCoach == null)
                 pitchCoach = FindAnyObjectByType<SideViewTrainingAid>();
-            visible = visibleByDefault;
+            if (gameFlow == null)
+                gameFlow = FindAnyObjectByType<GameFlowController>();
+            if (gameFlow != null)
+            {
+                gameFlow.ModeChanged -= HandleGameModeChanged;
+                gameFlow.ModeChanged += HandleGameModeChanged;
+            }
+            // Lesson information is a modal, never a persistent flight overlay.
+            visible = false;
             if (panel != null) ApplyVisibility();
         }
 
@@ -51,8 +63,7 @@ namespace SimplyFly.GroundOps
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null && keyboard[toggleKey].wasPressedThisFrame)
             {
-                visible = !visible;
-                ApplyVisibility();
+                SetVisible(!visible);
             }
             Refresh();
             ApplyVisibility();
@@ -71,10 +82,12 @@ namespace SimplyFly.GroundOps
             };
             panel.pickingMode = PickingMode.Position;
             panel.style.position = Position.Absolute;
-            panel.style.left = 20f;
-            panel.style.top = 18f;
-            panel.style.width = 380f;
-            panel.style.height = 205f;
+            panel.style.left = Length.Percent(50f);
+            panel.style.top = Length.Percent(50f);
+            panel.style.translate =
+                new Translate(Length.Percent(-50f), Length.Percent(-50f));
+            panel.style.width = 520f;
+            panel.style.height = 420f;
             panel.style.paddingLeft = 14f;
             panel.style.paddingRight = 8f;
             panel.style.paddingTop = 10f;
@@ -270,7 +283,49 @@ namespace SimplyFly.GroundOps
         public void SetVisible(bool value)
         {
             visible = value;
+            SetModalPause(value);
             ApplyVisibility();
+        }
+
+        private void SetModalPause(bool pause)
+        {
+            if (pause)
+            {
+                if (gameFlow == null ||
+                    gameFlow.Mode != SimplyFlyGameMode.FlightSchool)
+                    return;
+                pausedByLessonModal = true;
+                Time.timeScale = 0f;
+                AudioListener.pause = true;
+                UnityEngine.Cursor.visible = true;
+                UnityEngine.Cursor.lockState = CursorLockMode.None;
+                return;
+            }
+
+            if (!pausedByLessonModal) return;
+            pausedByLessonModal = false;
+            if (gameFlow != null && gameFlow.Mode == SimplyFlyGameMode.Paused)
+                return;
+            Time.timeScale = 1f;
+            AudioListener.pause = false;
+            UnityEngine.Cursor.visible = false;
+            UnityEngine.Cursor.lockState = CursorLockMode.Confined;
+        }
+
+        private void HandleGameModeChanged()
+        {
+            // Resuming from the Escape menu must not unpause gameplay while
+            // the lesson modal is still covering the flight view.
+            if (visible && gameFlow != null &&
+                gameFlow.Mode == SimplyFlyGameMode.FlightSchool)
+                SetModalPause(true);
+        }
+
+        private void OnDisable()
+        {
+            if (gameFlow != null)
+                gameFlow.ModeChanged -= HandleGameModeChanged;
+            SetModalPause(false);
         }
 
         private static Label CreateLabel(
