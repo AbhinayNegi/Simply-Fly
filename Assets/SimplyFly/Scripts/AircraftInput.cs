@@ -29,12 +29,18 @@ namespace SimplyFly.GroundOps
         public bool TrimResetPressed { get; private set; }
         public Vector2 CameraLookDelta { get; private set; }
         public bool TestOverrideActive { get; private set; }
+        public bool AutomationOverrideActive { get; private set; }
 
         private float testThrottleInput;
         private float testSteeringInput;
         private float testRudderInput;
         private float testElevatorInput;
         private bool testBrakeHeld;
+        private float automationThrottleInput;
+        private float automationSteeringInput;
+        private float automationRudderInput;
+        private float automationElevatorInput;
+        private bool automationBrakeHeld;
 
         private void Update()
         {
@@ -47,6 +53,7 @@ namespace SimplyFly.GroundOps
             {
                 ClearInput();
                 ApplyTestOverride();
+                ApplyAutomationOverride();
                 return;
             }
 
@@ -92,6 +99,7 @@ namespace SimplyFly.GroundOps
                 : Vector2.zero;
 
             ApplyTestOverride();
+            ApplyAutomationOverride();
         }
 
         private static float ReadAxis(bool positive, bool negative)
@@ -142,6 +150,31 @@ namespace SimplyFly.GroundOps
             testBrakeHeld = false;
         }
 
+        public void SetAutomationControls(
+            float throttleInput,
+            float steeringInput,
+            float elevatorInput,
+            bool brakeHeld,
+            float rudderInput = 0f)
+        {
+            AutomationOverrideActive = true;
+            automationThrottleInput = Mathf.Clamp(throttleInput, -1f, 1f);
+            automationSteeringInput = Mathf.Clamp(steeringInput, -1f, 1f);
+            automationRudderInput = Mathf.Clamp(rudderInput, -1f, 1f);
+            automationElevatorInput = Mathf.Clamp(elevatorInput, -1f, 1f);
+            automationBrakeHeld = brakeHeld;
+        }
+
+        public void ClearAutomationControls()
+        {
+            AutomationOverrideActive = false;
+            automationThrottleInput = 0f;
+            automationSteeringInput = 0f;
+            automationRudderInput = 0f;
+            automationElevatorInput = 0f;
+            automationBrakeHeld = false;
+        }
+
         private void ApplyTestOverride()
         {
             if (!TestOverrideActive) return;
@@ -151,6 +184,23 @@ namespace SimplyFly.GroundOps
             RudderInput = testRudderInput;
             ElevatorInput = testElevatorInput;
             BrakeHeld = testBrakeHeld;
+        }
+
+        private void ApplyAutomationOverride()
+        {
+            if (!AutomationOverrideActive) return;
+            ThrottleInput = automationThrottleInput;
+            SteeringInput = automationSteeringInput;
+            AileronInput = automationSteeringInput;
+            RudderInput = automationRudderInput;
+            ElevatorInput = automationElevatorInput;
+            BrakeHeld = automationBrakeHeld;
+            ParkingBrakeTogglePressed = false;
+            StartEnginePressed = false;
+            FlapsExtendPressed = false;
+            FlapsRetractPressed = false;
+            TrimCapturePressed = false;
+            TrimResetPressed = false;
         }
     }
 }

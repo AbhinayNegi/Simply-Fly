@@ -51,6 +51,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private RudderController rudder;
         [SerializeField] private SlipSkidHUDView slipSkidView;
         [SerializeField] private TMP_Text holdAssistLabel;
+        [SerializeField] private AutoLandStatusHUD autoLandStatus;
 
         [Header("Display tuning")]
         [SerializeField] private Key hudToggleKey = Key.H;
@@ -85,11 +86,38 @@ namespace SimplyFly.GroundOps
             EnsureEngineInstrument();
             EnsureMiniAttitude();
             EnsureHoldAssistStyle();
+            EnsureAutoLand();
             if (wind == null) wind = FindAnyObjectByType<WindController>();
             if (slipSkidView != null)
                 slipSkidView.gameObject.SetActive(false);
             ApplyHUDVisibility();
             if (landingFeedbackGroup != null) landingFeedbackGroup.alpha = 0f;
+        }
+
+        private void EnsureAutoLand()
+        {
+            if (!ExperimentalFeatureFlags.AutoLandEnabled)
+            {
+                if (autoLandStatus != null)
+                    autoLandStatus.gameObject.SetActive(false);
+                return;
+            }
+            if (flightPhysics == null)
+                flightPhysics = FindAnyObjectByType<FlightPhysicsController>();
+            if (flightPhysics == null) return;
+            AutoLandController controller =
+                flightPhysics.GetComponent<AutoLandController>();
+            if (controller == null)
+                controller = flightPhysics.gameObject.AddComponent<AutoLandController>();
+            if (autoLandStatus == null)
+                autoLandStatus = GetComponentInChildren<AutoLandStatusHUD>(true);
+            if (autoLandStatus == null)
+            {
+                GameObject go = new("Autoland Status", typeof(RectTransform));
+                go.transform.SetParent(transform, false);
+                autoLandStatus = go.AddComponent<AutoLandStatusHUD>();
+            }
+            autoLandStatus.Bind(controller);
         }
 
         private void EnsureHeadingRibbon()

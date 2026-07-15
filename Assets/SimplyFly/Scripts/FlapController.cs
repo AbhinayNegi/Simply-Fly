@@ -167,5 +167,20 @@ namespace SimplyFly.GroundOps
             transientPitchInput = 0f;
             UpdateEffects();
         }
+
+        public void SetTargetAngle(float angle)
+        {
+            if (flapPositions == null || flapPositions.Length == 0) return;
+            int nearest = 0;
+            float nearestDistance = Mathf.Abs(flapPositions[0] - angle);
+            for (int i = 1; i < flapPositions.Length; i++)
+            {
+                float distance = Mathf.Abs(flapPositions[i] - angle);
+                if (distance >= nearestDistance) continue;
+                nearest = i;
+                nearestDistance = distance;
+            }
+            SelectedIndex = nearest;
+        }
     }
 }

@@ -98,6 +98,11 @@ namespace SimplyFly.GroundOps
 
         private void Update()
         {
+            if (input != null && input.AutomationOverrideActive)
+            {
+                if (ActiveMode != AssistMode.None) ResetAssists();
+                return;
+            }
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null && keyboard.pKey.wasPressedThisFrame)
             {

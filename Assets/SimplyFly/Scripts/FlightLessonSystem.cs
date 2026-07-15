@@ -48,7 +48,9 @@ namespace SimplyFly.GroundOps
         NavigationLateralAligned,
         NavigationGlideAligned,
         NavigationApproachStable,
-        DistanceToTouchdownBelow
+        DistanceToTouchdownBelow,
+        AutoLandActive,
+        AutoLandComplete
     }
 
     [Serializable]
@@ -89,6 +91,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private AircraftResetController resetController;
         [SerializeField] private AirportLocationManager locationManager;
         [SerializeField] private NavigationManager navigation;
+        [SerializeField] private AutoLandController autoLand;
 
         [Header("Lessons")]
         [SerializeField] private FlightLessonDefinition[] lessons;
@@ -119,9 +122,11 @@ namespace SimplyFly.GroundOps
             CurrentLessonIndex == 3 ||
             CurrentLessonIndex == 4 ||
             CurrentLessonIndex == 6 ||
-            CurrentLessonIndex == 7;
+            CurrentLessonIndex == 7 ||
+            CurrentLessonIndex == 8;
         public bool ApproachCuesRequested =>
-            CurrentLessonIndex == 4 || CurrentLessonIndex == 7;
+            CurrentLessonIndex == 4 || CurrentLessonIndex == 7 ||
+            CurrentLessonIndex == 8;
         public bool ApproachAidLessonRequested => CurrentLessonIndex == 7;
         public bool StallCoachRequested => CurrentLessonIndex == 3;
 
@@ -133,8 +138,16 @@ namespace SimplyFly.GroundOps
         private void Awake()
         {
             ResolveReferences();
-            if (lessons == null || lessons.Length < 8)
+            if (lessons == null || lessons.Length < 9)
                 lessons = BuildDefaultLessons();
+            if (!ExperimentalFeatureFlags.AutoLandEnabled &&
+                lessons != null && lessons.Length > 8)
+            {
+                FlightLessonDefinition[] visibleLessons =
+                    new FlightLessonDefinition[8];
+                Array.Copy(lessons, visibleLessons, visibleLessons.Length);
+                lessons = visibleLessons;
+            }
             CurrentLessonIndex = Mathf.Clamp(
                 startingLesson, 0, lessons.Length - 1);
             BeginObjective();
@@ -222,6 +235,13 @@ namespace SimplyFly.GroundOps
                     break;
                 case 7:
                     navigation?.StartApproachPractice();
+                    break;
+                case 8:
+                    navigation?.StartApproachPractice(
+                        2800f, 55f, 8f,
+                        locationManager == null ? 0 :
+                        locationManager.SelectedAirportIndex);
+                    autoLand?.Disengage("AUTOLAND READY - PRESS U");
                     break;
             }
         }
@@ -420,6 +440,12 @@ namespace SimplyFly.GroundOps
                     return navigation != null &&
                            navigation.DistanceToTouchdownTarget <=
                            objective.value;
+                case LessonObjectiveCondition.AutoLandActive:
+                    return autoLand != null && autoLand.Active;
+                case LessonObjectiveCondition.AutoLandComplete:
+                    return autoLand != null &&
+                           autoLand.Phase ==
+                           AutoLandController.AutoLandPhase.Complete;
                 default:
                     return false;
             }
@@ -517,6 +543,13 @@ namespace SimplyFly.GroundOps
                 locationManager = FindAnyObjectByType<AirportLocationManager>();
             if (navigation == null)
                 navigation = FindAnyObjectByType<NavigationManager>();
+            if (ExperimentalFeatureFlags.AutoLandEnabled)
+            {
+                if (autoLand == null)
+                    autoLand = GetComponent<AutoLandController>();
+                if (autoLand == null)
+                    autoLand = gameObject.AddComponent<AutoLandController>();
+            }
         }
 
         private static LessonObjectiveDefinition Objective(
@@ -838,6 +871,27 @@ namespace SimplyFly.GroundOps
                             LessonObjectiveCondition.DistanceToTouchdownBelow,
                             300f, holdDuration: 1f,
                             success: "FLARE VIEW REACHED")
+                    }
+                },
+                new FlightLessonDefinition
+                {
+                    title = "9. Experimental Autoland",
+                    description =
+                        "Start on a stable final, engage autoland, and monitor the automatic landing and rollout.",
+                    completionMessage =
+                        "AUTOLAND LESSON COMPLETE - Aircraft landed and stopped automatically.",
+                    objectives = new[]
+                    {
+                        Objective(
+                            "Press U to engage Experimental Autoland.",
+                            "The aircraft starts inside the capture envelope. Autoland takes exclusive control until U is pressed again.",
+                            LessonObjectiveCondition.AutoLandActive,
+                            success: "AUTOLAND ENGAGED"),
+                        Objective(
+                            "Monitor the approach, flare, touchdown, and rollout.",
+                            "Do not use flight controls. Press U only if you need to disconnect the system.",
+                            LessonObjectiveCondition.AutoLandComplete,
+                            success: "AUTOLAND COMPLETE")
                     }
                 }
             };

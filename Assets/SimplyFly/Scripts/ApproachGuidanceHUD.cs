@@ -9,10 +9,9 @@ namespace SimplyFly.GroundOps
     public sealed class ApproachGuidanceHUD : MonoBehaviour
     {
         private const float GsOnPathThresholdDeg = 0.3f;
-        // Match NavigationManager's existing 25 m centerline tolerance.
-        private const float LatOnPathThresholdNm = 25f / 1852f;
+        private const float LatOnPathThresholdMeters = 5f;
+        private const float HeadingOnPathThresholdDeg = 2f;
         private const float GsClampDeg = 3f;
-        private const float LatClampNm = 1f;
         private const float DisplayRangeMeters = 4000f;
 
         private static readonly Color OnTargetGreen =
@@ -130,8 +129,10 @@ namespace SimplyFly.GroundOps
             float glideslopeDeviation = Mathf.Atan2(
                 navigation.GlideSlopeAltitudeError, horizontalDistance) *
                 Mathf.Rad2Deg;
-            float lateralNm = navigation.LateralOffset / 1852f;
-            Refresh(glideslopeDeviation, lateralNm);
+            Refresh(
+                glideslopeDeviation,
+                navigation.LateralOffset,
+                navigation.AlignmentError);
         }
 
         private bool ShouldShow()
@@ -159,7 +160,10 @@ namespace SimplyFly.GroundOps
             pitchCoach?.SetNavigationOverlaySuppressed(visible);
         }
 
-        private void Refresh(float glideslopeDeg, float lateralOffsetNm)
+        private void Refresh(
+            float glideslopeDeg,
+            float lateralOffsetMeters,
+            float alignmentErrorDeg)
         {
             bool gsOnPath = Mathf.Abs(glideslopeDeg) < GsOnPathThresholdDeg;
             Color gsColor = gsOnPath ? OnTargetGreen : OffTargetAmber;
@@ -168,21 +172,39 @@ namespace SimplyFly.GroundOps
             gsStatus.style.color = gsColor;
             SetAircraftColor(gsColor);
 
-            bool latOnPath = Mathf.Abs(lateralOffsetNm) < LatOnPathThresholdNm;
+            float lateralOffsetNm = lateralOffsetMeters / 1852f;
+            bool positionCentered =
+                Mathf.Abs(lateralOffsetMeters) <= LatOnPathThresholdMeters;
+            bool headingAligned =
+                Mathf.Abs(alignmentErrorDeg) <= HeadingOnPathThresholdDeg;
+            bool latOnPath = positionCentered && headingAligned;
             Color latColor = latOnPath ? OnTargetGreen : OffTargetAmber;
-            string side = latOnPath ? "C" : lateralOffsetNm > 0f ? "R" : "L";
-            latValue.text = $"{side} {Mathf.Abs(lateralOffsetNm):0.00} NM";
-            latStatus.text = latOnPath ? "ON CENTERLINE" :
-                lateralOffsetNm > 0f ? "RIGHT" : "LEFT";
+            string side = positionCentered
+                ? "C"
+                : lateralOffsetMeters > 0f ? "R" : "L";
+            latValue.text = navigation.DistanceToThreshold < 1852f
+                ? $"{side} {Mathf.Abs(lateralOffsetMeters):0} M"
+                : $"{side} {Mathf.Abs(lateralOffsetNm):0.00} NM";
+            latStatus.text = latOnPath
+                ? "ON CENTERLINE"
+                : !positionCentered
+                    ? lateralOffsetMeters > 0f ? "RIGHT" : "LEFT"
+                    : alignmentErrorDeg > 0f
+                        ? "TURN RIGHT"
+                        : "TURN LEFT";
             latStatus.style.color = latColor;
             trackMarker.style.backgroundColor = latColor;
-            float displayedLateralNm = latOnPath ? 0f : lateralOffsetNm;
-            trackMarker.style.left = Length.Percent(Mathf.Clamp(
-                50f + Mathf.Clamp(displayedLateralNm, -LatClampNm, LatClampNm) * 50f,
-                2f, 98f));
-
             float progress = 1f - Mathf.Clamp01(
                 navigation.DistanceToThreshold / DisplayRangeMeters);
+            float lateralDisplayRangeNm = Mathf.Lerp(0.25f, 0.02f, progress);
+            trackMarker.style.left = Length.Percent(Mathf.Clamp(
+                50f + Mathf.Clamp(
+                    lateralOffsetNm,
+                    -lateralDisplayRangeNm,
+                    lateralDisplayRangeNm) /
+                    lateralDisplayRangeNm * 48f,
+                2f, 98f));
+
             UpdateGlideslopeVisual(gsOnPath ? 0f : glideslopeDeg, progress);
             aircraftRing.style.opacity =
                 0.35f + 0.65f * (0.5f + 0.5f *
