@@ -533,17 +533,51 @@ namespace SimplyFly.GroundOps
                 settings.AwarenessEnabled, settings.SetAwarenessEnabled);
             AddToggle("PITCH COACH",
                 settings.PitchCoachEnabled, settings.SetPitchCoachEnabled);
-            AddToggle("CAMERA AUTO-RECENTER",
-                settings.CameraRecenterEnabled,
-                settings.SetCameraRecenterEnabled);
             AddSlider("MOTION CUE STRENGTH",
                 settings.MotionCueStrength, 0f, 2f,
                 settings.SetMotionCueStrength);
-            AddSlider("MOUSE SENSITIVITY",
-                settings.MouseSensitivity, 0.02f, 0.5f,
-                settings.SetMouseSensitivity);
-            AddToggle("INVERT CAMERA Y",
-                settings.CameraInvertY, settings.SetCameraInvertY);
+            AddSection("CAMERA SETTINGS");
+            CameraSettingsData camera = settings.CameraSettings;
+            AddSlider("EXTERNAL CAMERA FOV", camera.ExternalFov, 45f, 85f,
+                settings.SetExternalCameraFov);
+            AddSlider("COCKPIT CAMERA FOV", camera.CockpitFov, 55f, 95f,
+                settings.SetCockpitCameraFov);
+            AddSlider("CINEMATIC CAMERA FOV", camera.CinematicFov, 35f, 80f,
+                settings.SetCinematicCameraFov);
+            AddSlider("ORBIT SENSITIVITY", camera.ExternalSensitivity,
+                0.25f, 2f, settings.SetMouseSensitivity);
+            AddSlider("COCKPIT / WING LOOK SENSITIVITY",
+                camera.CockpitSensitivity, 0.25f, 2f,
+                settings.SetCockpitLookSensitivity);
+            AddSlider("CAMERA MOTION INTENSITY", camera.MotionIntensity,
+                0f, 1f, settings.SetCameraMotionIntensity);
+            AddToggle("ENABLE CAMERA SHAKE", camera.ShakeEnabled,
+                settings.SetCameraShakeEnabled);
+            AddToggle("ENABLE ORBIT AUTO-RECENTER", camera.AutoRecenter,
+                settings.SetCameraRecenterEnabled);
+            AddSlider("RECENTER DELAY", camera.RecenterDelay, 0f, 5f,
+                settings.SetRecenterDelay);
+            AddSlider("RECENTER SPEED", camera.RecenterSpeed, 0.25f, 8f,
+                settings.SetRecenterSpeed);
+            AddToggle("INVERT EXTERNAL CAMERA Y", camera.InvertExternalY,
+                settings.SetCameraInvertY);
+            AddToggle("INVERT COCKPIT CAMERA Y", camera.InvertCockpitY,
+                settings.SetInvertCockpitY);
+            AddToggle("SHOW HUD IN CINEMATIC VIEWS", camera.ShowCinematicHud,
+                settings.SetShowHUDInCinematicCameras);
+            AddToggle("ENABLE CINEMATIC CAMERA TRANSITIONS",
+                camera.CinematicTransitions, settings.SetCinematicTransitions);
+            AddToggle("REMEMBER LAST CAMERA VIEW", camera.RememberLastView,
+                settings.SetRememberLastCameraView);
+            AddToggle("INCLUDE WING VIEWS IN CAMERA CYCLE",
+                camera.IncludeWingViews, settings.SetIncludeWingViews);
+            AddToggle("INCLUDE CLOSE CHASE IN CAMERA CYCLE",
+                camera.IncludeCloseChase, settings.SetIncludeCloseChase);
+            AddPrimaryButton("RESET CAMERA SETTINGS TO DEFAULTS", () =>
+            {
+                settings.ResetCameraSettingsToDefaults();
+                RefreshPreservingScroll(() => ShowSettings(backAction));
+            });
             AddSection("MOUSE YOKE");
             AddToggle("ENABLE MOUSE YOKE",
                 settings.MouseYokeEnabled, settings.SetMouseYokeEnabled);
@@ -663,7 +697,9 @@ namespace SimplyFly.GroundOps
                 "+ / - or Mouse Wheel  —  Adjust active VS target\n" +
                 "T / Shift + T  —  Trim disabled for now\n" +
                 "Z / X  —  Quick look left / right\n" +
-                "C  —  Cycle camera mode\n" +
+                "1–5  —  Chase / Close Chase / Cockpit / Left Wing / Right Wing\n" +
+                "C  —  Enter / cycle cinematic cameras\n" +
+                "Shift+C or Esc  —  Exit cinematic camera\n" +
                 "R or Middle Mouse  —  Recenter camera\n" +
                 "RMB Drag  —  Orbit chase / free camera\n" +
                 "H  —  Toggle HUD\n" +

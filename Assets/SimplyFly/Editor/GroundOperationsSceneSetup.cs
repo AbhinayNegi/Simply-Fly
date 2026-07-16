@@ -2711,8 +2711,30 @@ namespace SimplyFly.Editor
             }
 
             CameraController controller = GetOrAdd<CameraController>(camera.gameObject);
+            GameObject focusObject = FindOrCreateChild(
+                aircraft.transform, "CameraFocusTarget");
+            focusObject.transform.localPosition = new Vector3(0f, 0.55f, 0f);
+            focusObject.transform.localRotation = Quaternion.identity;
+            GameObject cockpitAnchor = FindOrCreateChild(
+                aircraft.transform, "CockpitCameraAnchor");
+            cockpitAnchor.transform.SetLocalPositionAndRotation(
+                new Vector3(0f, 0.78f, 0.9f), Quaternion.identity);
+            GameObject leftWingAnchor = FindOrCreateChild(
+                aircraft.transform, "LeftWingCameraAnchor");
+            leftWingAnchor.transform.SetLocalPositionAndRotation(
+                new Vector3(-4.25f, 0.2f, -0.15f), Quaternion.identity);
+            GameObject rightWingAnchor = FindOrCreateChild(
+                aircraft.transform, "RightWingCameraAnchor");
+            rightWingAnchor.transform.SetLocalPositionAndRotation(
+                new Vector3(4.25f, 0.2f, -0.15f), Quaternion.identity);
             SetObject(controller, "target", aircraft.transform);
+            SetObject(controller, "focusTarget", focusObject.transform);
+            SetObject(controller, "cockpitCameraAnchor", cockpitAnchor.transform);
+            SetObject(controller, "leftWingCameraAnchor", leftWingAnchor.transform);
+            SetObject(controller, "rightWingCameraAnchor", rightWingAnchor.transform);
             SetObject(controller, "input", aircraft.GetComponent<AircraftInput>());
+            SetObject(controller, "gameFlow",
+                UnityEngine.Object.FindAnyObjectByType<GameFlowController>());
             SetObject(controller, "awarenessAssist",
                 aircraft.GetComponent<PilotAwarenessAssist>());
             SetFloat(controller, "defaultYaw", 0f);
@@ -2724,14 +2746,18 @@ namespace SimplyFly.Editor
             SetFloat(controller, "defaultPitchAngle", 8f);
             SetFloat(controller, "cameraSmoothness", 5.5f);
             SetFloat(controller, "rotationSmoothness", 8f);
+            SetFloat(controller, "positionSmoothing", 0.28f);
+            SetFloat(controller, "phase1RotationSmoothing", 18f);
+            SetFloat(controller, "rollInfluence", 0.18f);
+            SetFloat(controller, "chaseDistance", 18f);
+            SetFloat(controller, "minimumDistance", 16f);
+            SetFloat(controller, "framingPadding", 1.25f);
             SetFloat(controller, "mouseSensitivity", 0.18f);
+            SetFloat(controller, "recenterDelay", 0.65f);
+            SetFloat(controller, "recenterSpeed", 2.5f);
             SetFloat(controller, "baseLookAheadDistance", 5f);
             SetFloat(controller, "speedLookAheadMultiplier", 0.08f);
             SetFloat(controller, "maxLookAheadDistance", 11f);
-            SetFloat(controller, "landingDistance", 11f);
-            SetFloat(controller, "landingHeight", 1.6f);
-            SetFloat(controller, "landingPitchAngle", 3f);
-            SetFloat(controller, "landingLookAhead", 9f);
             SetFloat(controller, "collisionRadius", 0.45f);
             SetFloat(controller, "collisionPadding", 0.3f);
             SetFloat(controller, "minimumGroundClearance", 0.8f);

@@ -28,6 +28,7 @@ namespace SimplyFly.GroundOps
         [SerializeField] private FlightSchoolUI lessonUI;
         [SerializeField] private FlightHUDController flightHUD;
         [SerializeField] private GameSettingsManager settings;
+        [SerializeField] private CameraController cameraController;
 
         public event Action ModeChanged;
         public SimplyFlyGameMode Mode { get; private set; } =
@@ -51,6 +52,13 @@ namespace SimplyFly.GroundOps
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null || !keyboard.escapeKey.wasPressedThisFrame)
                 return;
+            if (cameraController == null)
+                cameraController = FindAnyObjectByType<CameraController>();
+            if (cameraController != null && cameraController.IsCinematic)
+            {
+                cameraController.ExitCinematicMode();
+                return;
+            }
             if (IsInFlight) Pause();
             else if (Mode == SimplyFlyGameMode.Paused) Resume();
         }
