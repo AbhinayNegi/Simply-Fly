@@ -2,6 +2,28 @@ using UnityEngine;
 
 namespace SimplyFly.GroundOps
 {
+    [System.Serializable]
+    public sealed class CameraSettingsData
+    {
+        public float ExternalFov = 60f;
+        public float CockpitFov = 70f;
+        public float CinematicFov = 50f;
+        public float ExternalSensitivity = 1f;
+        public float CockpitSensitivity = 1f;
+        public float MotionIntensity = 0.6f;
+        public bool ShakeEnabled = true;
+        public bool AutoRecenter = true;
+        public float RecenterDelay = 1.5f;
+        public float RecenterSpeed = 2.5f;
+        public bool InvertExternalY;
+        public bool InvertCockpitY;
+        public bool ShowCinematicHud;
+        public bool CinematicTransitions = true;
+        public bool RememberLastView = true;
+        public bool IncludeWingViews = true;
+        public bool IncludeCloseChase = true;
+    }
+
     public sealed class GameSettingsManager : MonoBehaviour
     {
         [SerializeField] private AircraftAudioController aircraftAudio;
@@ -30,6 +52,10 @@ namespace SimplyFly.GroundOps
         public float MotionCueStrength { get; private set; }
         public float MouseSensitivity { get; private set; }
         public bool CameraInvertY { get; private set; }
+        public bool CameraShakeEnabled { get; private set; }
+        public float CameraMotionIntensity { get; private set; }
+        public bool ShowHUDInCinematicCameras { get; private set; }
+        public CameraSettingsData CameraSettings => cameraSettings;
         public CameraController.CameraMode CameraMode =>
             cameraController == null ? cameraMode : cameraController.CurrentMode;
         public bool DebugUIEnabled { get; private set; }
@@ -61,6 +87,7 @@ namespace SimplyFly.GroundOps
         public float MouseYokeSmoothing { get; private set; }
         public float MouseYokeMaximumInput { get; private set; }
         private CameraController.CameraMode cameraMode;
+        private CameraSettingsData cameraSettings = new();
 
         private void Awake()
         {
@@ -75,16 +102,13 @@ namespace SimplyFly.GroundOps
             RunwayAlignmentEnabled = GetBool("settings.runwayAlignment", true);
             AwarenessEnabled = GetBool("settings.awareness", true);
             PitchCoachEnabled = GetBool("settings.pitchCoach", true);
-            CameraRecenterEnabled = GetBool("settings.cameraRecenter", true);
+            LoadCameraSettings();
             MotionCueStrength =
                 PlayerPrefs.GetFloat("settings.motionStrength", 1f);
-            MouseSensitivity =
-                PlayerPrefs.GetFloat("settings.mouseSensitivity", 0.18f);
-            CameraInvertY = GetBool("settings.cameraInvertY", false);
-            cameraMode = (CameraController.CameraMode)Mathf.Clamp(
-                PlayerPrefs.GetInt("settings.cameraMode", 0),
-                0,
-                System.Enum.GetValues(typeof(CameraController.CameraMode)).Length - 1);
+            cameraMode = cameraSettings.RememberLastView
+                ? (CameraController.CameraMode)Mathf.Clamp(
+                    PlayerPrefs.GetInt("camera.mode", 0), 0, 4)
+                : CameraController.CameraMode.Chase;
             DebugUIEnabled = GetBool("settings.debugUI", false);
             TrimEnabled = false;
             PitchHoldEnabled = GetBool("settings.pitchHold", true);
@@ -224,9 +248,8 @@ namespace SimplyFly.GroundOps
 
         public void SetCameraRecenterEnabled(bool value)
         {
-            CameraRecenterEnabled = value;
-            cameraController?.SetAutoRecenterEnabled(value);
-            SaveBool("settings.cameraRecenter", value);
+            cameraSettings.AutoRecenter = value;
+            ApplyAndSaveCameraSettings();
         }
 
         public void SetMotionCueStrength(float value)
@@ -238,24 +261,138 @@ namespace SimplyFly.GroundOps
 
         public void SetMouseSensitivity(float value)
         {
-            MouseSensitivity = Mathf.Clamp(value, 0.02f, 1f);
-            cameraController?.SetMouseSensitivity(MouseSensitivity);
-            SaveFloat("settings.mouseSensitivity", MouseSensitivity);
+            cameraSettings.ExternalSensitivity = Mathf.Clamp(value, 0.25f, 2f);
+            ApplyAndSaveCameraSettings();
         }
 
         public void SetCameraInvertY(bool value)
         {
-            CameraInvertY = value;
-            cameraController?.SetInvertY(value);
-            SaveBool("settings.cameraInvertY", value);
+            cameraSettings.InvertExternalY = value;
+            ApplyAndSaveCameraSettings();
+        }
+
+        private void LoadCameraSettings()
+        {
+            cameraSettings.ExternalFov = LoadCameraFloat("externalFov", 60f, 45f, 85f);
+            cameraSettings.CockpitFov = LoadCameraFloat("cockpitFov", 70f, 55f, 95f);
+            cameraSettings.CinematicFov = LoadCameraFloat("cinematicFov", 50f, 35f, 80f);
+            cameraSettings.ExternalSensitivity = LoadCameraFloat("externalSensitivity", 1f, 0.25f, 2f);
+            cameraSettings.CockpitSensitivity = LoadCameraFloat("cockpitSensitivity", 1f, 0.25f, 2f);
+            cameraSettings.MotionIntensity = LoadCameraFloat("motionIntensity", 0.6f, 0f, 1f);
+            cameraSettings.ShakeEnabled = GetBool("camera.shake", true);
+            cameraSettings.AutoRecenter = GetBool("camera.autoRecenter", true);
+            cameraSettings.RecenterDelay = LoadCameraFloat("recenterDelay", 1.5f, 0f, 5f);
+            cameraSettings.RecenterSpeed = LoadCameraFloat("recenterSpeed", 2.5f, 0.25f, 8f);
+            cameraSettings.InvertExternalY = GetBool("camera.invertExternalY", false);
+            cameraSettings.InvertCockpitY = GetBool("camera.invertCockpitY", false);
+            cameraSettings.ShowCinematicHud = GetBool("camera.cinematicHud", false);
+            cameraSettings.CinematicTransitions = GetBool("camera.cinematicTransitions", true);
+            cameraSettings.RememberLastView = GetBool("camera.rememberLastView", true);
+            cameraSettings.IncludeWingViews = GetBool("camera.includeWingViews", true);
+            cameraSettings.IncludeCloseChase = GetBool("camera.includeCloseChase", true);
+            SyncLegacyCameraProperties();
+        }
+
+        private static float LoadCameraFloat(
+            string key, float fallback, float minimum, float maximum)
+        {
+            float value = PlayerPrefs.GetFloat("camera." + key, fallback);
+            if (float.IsNaN(value) || float.IsInfinity(value)) value = fallback;
+            return Mathf.Clamp(value, minimum, maximum);
+        }
+
+        private void SyncLegacyCameraProperties()
+        {
+            CameraRecenterEnabled = cameraSettings.AutoRecenter;
+            MouseSensitivity = cameraSettings.ExternalSensitivity;
+            CameraInvertY = cameraSettings.InvertExternalY;
+            CameraShakeEnabled = cameraSettings.ShakeEnabled;
+            CameraMotionIntensity = cameraSettings.MotionIntensity;
+            ShowHUDInCinematicCameras = cameraSettings.ShowCinematicHud;
+        }
+
+        private void SaveCameraSettings()
+        {
+            PlayerPrefs.SetFloat("camera.externalFov", cameraSettings.ExternalFov);
+            PlayerPrefs.SetFloat("camera.cockpitFov", cameraSettings.CockpitFov);
+            PlayerPrefs.SetFloat("camera.cinematicFov", cameraSettings.CinematicFov);
+            PlayerPrefs.SetFloat("camera.externalSensitivity", cameraSettings.ExternalSensitivity);
+            PlayerPrefs.SetFloat("camera.cockpitSensitivity", cameraSettings.CockpitSensitivity);
+            PlayerPrefs.SetFloat("camera.motionIntensity", cameraSettings.MotionIntensity);
+            PlayerPrefs.SetInt("camera.shake", cameraSettings.ShakeEnabled ? 1 : 0);
+            PlayerPrefs.SetInt("camera.autoRecenter", cameraSettings.AutoRecenter ? 1 : 0);
+            PlayerPrefs.SetFloat("camera.recenterDelay", cameraSettings.RecenterDelay);
+            PlayerPrefs.SetFloat("camera.recenterSpeed", cameraSettings.RecenterSpeed);
+            PlayerPrefs.SetInt("camera.invertExternalY", cameraSettings.InvertExternalY ? 1 : 0);
+            PlayerPrefs.SetInt("camera.invertCockpitY", cameraSettings.InvertCockpitY ? 1 : 0);
+            PlayerPrefs.SetInt("camera.cinematicHud", cameraSettings.ShowCinematicHud ? 1 : 0);
+            PlayerPrefs.SetInt("camera.cinematicTransitions", cameraSettings.CinematicTransitions ? 1 : 0);
+            PlayerPrefs.SetInt("camera.rememberLastView", cameraSettings.RememberLastView ? 1 : 0);
+            PlayerPrefs.SetInt("camera.includeWingViews", cameraSettings.IncludeWingViews ? 1 : 0);
+            PlayerPrefs.SetInt("camera.includeCloseChase", cameraSettings.IncludeCloseChase ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        public void SetCameraShakeEnabled(bool value)
+        {
+            cameraSettings.ShakeEnabled = value;
+            ApplyAndSaveCameraSettings();
+        }
+
+        public void SetCameraMotionIntensity(float value)
+        {
+            cameraSettings.MotionIntensity = Mathf.Clamp01(value);
+            ApplyAndSaveCameraSettings();
+        }
+
+        public void SetShowHUDInCinematicCameras(bool value)
+        {
+            cameraSettings.ShowCinematicHud = value;
+            ApplyAndSaveCameraSettings();
+        }
+
+        public void SetExternalCameraFov(float value) { cameraSettings.ExternalFov = Mathf.Clamp(value, 45f, 85f); ApplyAndSaveCameraSettings(); }
+        public void SetCockpitCameraFov(float value) { cameraSettings.CockpitFov = Mathf.Clamp(value, 55f, 95f); ApplyAndSaveCameraSettings(); }
+        public void SetCinematicCameraFov(float value) { cameraSettings.CinematicFov = Mathf.Clamp(value, 35f, 80f); ApplyAndSaveCameraSettings(); }
+        public void SetCockpitLookSensitivity(float value) { cameraSettings.CockpitSensitivity = Mathf.Clamp(value, 0.25f, 2f); ApplyAndSaveCameraSettings(); }
+        public void SetRecenterDelay(float value) { cameraSettings.RecenterDelay = Mathf.Clamp(value, 0f, 5f); ApplyAndSaveCameraSettings(); }
+        public void SetRecenterSpeed(float value) { cameraSettings.RecenterSpeed = Mathf.Clamp(value, 0.25f, 8f); ApplyAndSaveCameraSettings(); }
+        public void SetInvertCockpitY(bool value) { cameraSettings.InvertCockpitY = value; ApplyAndSaveCameraSettings(); }
+        public void SetCinematicTransitions(bool value) { cameraSettings.CinematicTransitions = value; ApplyAndSaveCameraSettings(); }
+        public void SetRememberLastCameraView(bool value) { cameraSettings.RememberLastView = value; ApplyAndSaveCameraSettings(); }
+        public void SetIncludeWingViews(bool value) { cameraSettings.IncludeWingViews = value; ApplyAndSaveCameraSettings(); }
+        public void SetIncludeCloseChase(bool value) { cameraSettings.IncludeCloseChase = value; ApplyAndSaveCameraSettings(); }
+
+        public void ResetCameraSettingsToDefaults()
+        {
+            cameraSettings = new CameraSettingsData();
+            cameraMode = CameraController.CameraMode.Chase;
+            ApplyAndSaveCameraSettings();
+            PlayerPrefs.SetInt("camera.mode", 0);
+            PlayerPrefs.Save();
+            cameraController?.SetCameraMode(cameraMode);
+        }
+
+        public void NotifyCameraModeSelected(CameraController.CameraMode value)
+        {
+            cameraMode = value;
+            if (!cameraSettings.RememberLastView) return;
+            PlayerPrefs.SetInt("camera.mode", (int)value);
+            PlayerPrefs.Save();
+        }
+
+        private void ApplyAndSaveCameraSettings()
+        {
+            SyncLegacyCameraProperties();
+            cameraController?.ApplyPlayerSettings(cameraSettings);
+            SaveCameraSettings();
         }
 
         public void SetCameraMode(CameraController.CameraMode value)
         {
             cameraMode = value;
             cameraController?.SetCameraMode(value);
-            PlayerPrefs.SetInt("settings.cameraMode", (int)value);
-            PlayerPrefs.Save();
+            NotifyCameraModeSelected(value);
         }
 
         public void SetDebugUIEnabled(bool value)
@@ -468,10 +605,8 @@ namespace SimplyFly.GroundOps
             flightHUD?.SetRunwayAlignmentEnabled(RunwayAlignmentEnabled);
             awarenessAssist?.SetAssistEnabled(AwarenessEnabled);
             pitchCoach?.SetSettingEnabled(PitchCoachEnabled);
-            cameraController?.SetAutoRecenterEnabled(CameraRecenterEnabled);
             awarenessAssist?.SetMotionCueStrength(MotionCueStrength);
-            cameraController?.SetMouseSensitivity(MouseSensitivity);
-            cameraController?.SetInvertY(CameraInvertY);
+            cameraController?.ApplyPlayerSettings(cameraSettings);
             cameraController?.SetCameraMode(cameraMode);
             debugUI?.SetDebugVisibility(DebugUIEnabled);
             trim?.SetTrimEnabled(false);
