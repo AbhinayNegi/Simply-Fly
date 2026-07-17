@@ -12098,14 +12098,27 @@ MonoBehaviour:
   landing: {fileID: 506931245}
   awarenessAssist: {fileID: 506931249}
   wind: {fileID: 0}
+  brakes: {fileID: 0}
   debugUI: {fileID: 506931228}
   hudGroup: {fileID: 114509590}
   airspeedInstrument: {fileID: 761930469}
+  airspeedTape: {fileID: 0}
   altitudeInstrument: {fileID: 877325474}
+  altitudeTape: {fileID: 0}
   verticalSpeedInstrument: {fileID: 104565168}
+  verticalSpeedIndicator: {fileID: 0}
   headingInstrument: {fileID: 934144809}
+  headingRibbon: {fileID: 0}
+  windInstrument: {fileID: 0}
+  flapsInstrument: {fileID: 0}
+  brakeStatus: {fileID: 0}
+  flightPathMarker: {fileID: 0}
+  runwayAlignment: {fileID: 0}
+  approachGuidanceHUD: {fileID: 0}
   powerInstrument: {fileID: 282737186}
+  engineInstrument: {fileID: 0}
   attitudeInstrument: {fileID: 1327639889}
+  miniAttitude: {fileID: 0}
   warningLabel: {fileID: 240748579}
   awarenessLabel: {fileID: 753357543}
   landingFeedbackLabel: {fileID: 1730382703}
@@ -12114,6 +12127,7 @@ MonoBehaviour:
   rudder: {fileID: 506931254}
   slipSkidView: {fileID: 845705470}
   holdAssistLabel: {fileID: 1975763101}
+  autoLandStatus: {fileID: 0}
   hudToggleKey: 22
   debugToggleKey: 103
   safeApproachSpeedMin: 65
@@ -24357,6 +24371,7 @@ MonoBehaviour:
   visibleByDefault: 1
   advancedForcesByDefault: 0
   angleDisplayScale: 1.35
+  maximumDisplayAngle: 40
   trendResponse: 2.5
   speedTrendDeadband: 0.35
   verticalTrendDeadband: 0.25
@@ -49779,6 +49794,37 @@ Material:
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
+--- !u!1 &464964447
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 464964448}
+  m_Layer: 0
+  m_Name: Cessna Visual Integration v8
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &464964448
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 464964447}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!21 &464974457
 Material:
   serializedVersion: 8
@@ -54053,14 +54099,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SimplyFly.GroundOps.WheelVisualController
   wheels:
   - collider: {fileID: 809901777}
-    visual: {fileID: 1236036248}
-    visualAxle: {x: 0, y: 0, z: 1}
+    visual: {fileID: 1163720386}
+    visualAxle: {x: 1, y: 0, z: 0}
   - collider: {fileID: 484124083}
-    visual: {fileID: 1236036247}
-    visualAxle: {x: 0, y: 0, z: 1}
+    visual: {fileID: 1163720384}
+    visualAxle: {x: 1, y: 0, z: 0}
   - collider: {fileID: 799001770}
-    visual: {fileID: 1236036246}
-    visualAxle: {x: 0, y: 0, z: 1}
+    visual: {fileID: 1163720385}
+    visualAxle: {x: 1, y: 0, z: 0}
   movement: {fileID: 506931235}
 --- !u!114 &506931232
 MonoBehaviour:
@@ -54075,12 +54121,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimplyFly.GroundOps.PropellerController
   engine: {fileID: 506931238}
-  propeller: {fileID: 1236036249}
-  localRotationAxis: {x: 1, y: 0, z: 0}
+  propeller: {fileID: 1163720387}
+  localRotationAxis: {x: 0, y: 1, z: 0}
   rotationScale: 1
   blurStartRPM: 600
   blurCopyCount: 12
-  blurCopyOpacity: 0.055
+  blurCopyOpacity: 0.11
+  propellerBrightness: 0.2
+  propellerDiscOpacity: 0.18
+  propellerDiscRadiusScale: 1.06
   minimumBlurVisualSpeed: 180
   maximumBlurVisualSpeed: 520
 --- !u!114 &506931233
@@ -54624,6 +54673,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimplyFly.GroundOps.BrakeController
   input: {fileID: 506931240}
+  throttle: {fileID: 0}
+  flightPhysics: {fileID: 0}
   brakeStrength: 2800
   brakeResponseSpeed: 1.5
 --- !u!114 &506931238
@@ -54677,6 +54728,7 @@ MonoBehaviour:
   mouseYoke: {fileID: 0}
   startEngineKey: 19
   brakeKey: 1
+  parkingBrakeKey: 24
   resetCameraKey: 32
   extendFlapsKey: 20
   retractFlapsKey: 36
@@ -54744,7 +54796,7 @@ Transform:
   - {fileID: 809901778}
   - {fileID: 484124084}
   - {fileID: 799001771}
-  - {fileID: 1236036245}
+  - {fileID: 1163720383}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &506931244
@@ -55017,6 +55069,7 @@ MonoBehaviour:
   resetController: {fileID: 506931233}
   locationManager: {fileID: 941233123}
   navigation: {fileID: 941233125}
+  autoLand: {fileID: 0}
   lessons: []
   startingLesson: 0
   objectiveSuccessPause: 1.1
@@ -55296,7 +55349,7 @@ MonoBehaviour:
   vsHoldLowSpeedAuthorityBoost: 1.45
   vsHoldMaxClimbRate: 3
   vsHoldMaxDescentRate: -3
-  vsHoldTargetStep: 0.25
+  vsHoldTargetStepFeetPerMinute: 100
   mouseScrollThreshold: 1
   vsHoldDisengageOnLowSpeed: 0
   vsHoldAllowedOnGround: 1
@@ -57400,6 +57453,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 522900403}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &523824484
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 523824485}
+  m_Layer: 0
+  m_Name: CockpitCameraAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &523824485
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 523824484}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.06099259, y: 0.70914155, z: -0.6998392, w: 0.060193025}
+  m_LocalPosition: {x: 0.17640646, y: 2.4241953, z: -1.7495089}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1163720383}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &526404437
 GameObject:
   m_ObjectHideFlags: 0
@@ -91867,37 +91951,6 @@ Material:
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
---- !u!1 &842642058
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 842642059}
-  m_Layer: 0
-  m_Name: Cessna Integration Reverted v2
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &842642059
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 842642058}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &842814351
 GameObject:
   m_ObjectHideFlags: 0
@@ -102661,6 +102714,7 @@ MonoBehaviour:
   energyLabel: {fileID: 1190891873}
   controlPressureLabel: {fileID: 107966471}
   airflowLabel: {fileID: 957087751}
+  showLegacyTextLabels: 0
   visibleByDefault: 1
   toggleKey: 16
   maximumStreakAlpha: 0.32
@@ -102983,6 +103037,7 @@ MonoBehaviour:
   lessonUI: {fileID: 1819348090}
   flightHUD: {fileID: 114509589}
   settings: {fileID: 947686178}
+  cameraController: {fileID: 0}
 --- !u!4 &947686177
 Transform:
   m_ObjectHideFlags: 0
@@ -104610,7 +104665,81 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimplyFly.GroundOps.CameraController
   target: {fileID: 506931243}
+  focusTarget: {fileID: 0}
+  cockpitCameraAnchor: {fileID: 0}
+  leftWingCameraAnchor: {fileID: 0}
+  rightWingCameraAnchor: {fileID: 0}
   input: {fileID: 506931240}
+  gameFlow: {fileID: 0}
+  usePhase1ChaseCamera: 1
+  rollInfluence: 0.18
+  positionSmoothing: 0.28
+  phase1RotationSmoothing: 18
+  recenterDelay: 0.65
+  recenterSpeed: 2.5
+  framingPadding: 1.25
+  minimumDistance: 16
+  screenFramingOffset: {x: 0, y: 0.07}
+  focusTargetOffset: {x: 0, y: 0, z: 0}
+  closeChaseDistance: 12.5
+  closeChaseMinimumDistance: 11.5
+  closeChaseHeight: 1.5
+  closeChasePositionSmoothing: 0.18
+  cockpitLookLimits: {x: 75, y: 45}
+  wingLookLimits: {x: 18, y: 12}
+  attachedLookSensitivity: 0.12
+  attachedLookRecenterSpeed: 5
+  anchorPositionSmoothing: 0.04
+  anchorRotationSmoothing: 20
+  modeTransitionDuration: 0.35
+  fovTransitionSpeed: 10
+  modeLabelDuration: 1.5
+  cameraShakeEnabled: 1
+  cameraMotionIntensity: 0.65
+  motionBlendSpeed: 5
+  engineVibrationPosition: 0.018
+  engineVibrationRotation: 0.08
+  runwayRumblePosition: 0.025
+  windMovementPosition: 0.018
+  maximumAccelerationOffset: 0.08
+  maximumLandingOffset: 0.16
+  chaseBankInfluence: 0.08
+  bankInfluenceSmoothing: 3.5
+  chaseMotion:
+    engine: 0.25
+    runway: 0.35
+    wind: 0.15
+    landing: 0.35
+    acceleration: 0.3
+    turbulence: 0.25
+  closeChaseMotion:
+    engine: 0.35
+    runway: 0.5
+    wind: 0.25
+    landing: 0.5
+    acceleration: 0.45
+    turbulence: 0.4
+  cockpitMotion:
+    engine: 1
+    runway: 1
+    wind: 0.85
+    landing: 1
+    acceleration: 1
+    turbulence: 1
+  leftWingMotion:
+    engine: 0.85
+    runway: 0.8
+    wind: 1
+    landing: 0.8
+    acceleration: 0.7
+    turbulence: 1
+  rightWingMotion:
+    engine: 0.85
+    runway: 0.8
+    wind: 1
+    landing: 0.8
+    acceleration: 0.7
+    turbulence: 1
   chaseDistance: 14.5
   chaseHeight: 2.2
   chaseLookAhead: 1
@@ -104624,10 +104753,6 @@ MonoBehaviour:
   baseLookAheadDistance: 5
   speedLookAheadMultiplier: 0.08
   maxLookAheadDistance: 11
-  landingDistance: 11
-  landingHeight: 1.6
-  landingPitchAngle: 3
-  landingLookAhead: 9
   noseCameraOffset: {x: 0, y: 1.25, z: 2.1}
   topDownHeight: 120
   cameraSmoothness: 5.5
@@ -104640,7 +104765,6 @@ MonoBehaviour:
   collisionPadding: 0.3
   minimumGroundClearance: 0.8
   collisionReturnSpeed: 10
-  cycleModeKey: 17
   recenterKey: 17
   quickLookLeftKey: 40
   quickLookRightKey: 38
@@ -104653,6 +104777,30 @@ MonoBehaviour:
   autoRecenterStrength: 1.8
   cameraMode: 0
   awarenessAssist: {fileID: 506931249}
+  engine: {fileID: 0}
+  flightPhysics: {fileID: 0}
+  landingController: {fileID: 0}
+  stallController: {fileID: 0}
+  windController: {fileID: 0}
+  airportLocation: {fileID: 0}
+  runwayObserverAnchor: {fileID: 0}
+  flightHUD: {fileID: 0}
+  settings: {fileID: 0}
+  cinematicCycleKey: 17
+  showHUDInCinematicCameras: 0
+  flyByLeadDistance: 90
+  flyBySideOffsetRange: {x: -18, y: 18}
+  flyByHeightOffsetRange: {x: 5, y: 16}
+  flyByPassResetDistance: 110
+  flyByMinimumActivationSpeed: 12
+  runwaySideDistance: 28
+  runwayDistanceFromThreshold: 450
+  runwayCameraHeight: 5
+  runwayMaximumTrackingDistance: 2500
+  showcaseOrbitSpeed: 8
+  showcaseHeight: 4
+  showcaseDistance: 20
+  showcaseDirection: 1
 --- !u!1 &961941476
 GameObject:
   m_ObjectHideFlags: 0
@@ -124175,6 +124323,91 @@ Material:
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
+--- !u!1001 &1163720382
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 506931243}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -1.6
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 3.78827
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.000000030908623
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.000000030908623
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      propertyPath: m_Name
+      value: Cessna172_Unity
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 523824485}
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+--- !u!4 &1163720383 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+  m_PrefabInstance: {fileID: 1163720382}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1163720384 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -3749952859884817945, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+  m_PrefabInstance: {fileID: 1163720382}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1163720385 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2410070154625447552, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+  m_PrefabInstance: {fileID: 1163720382}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1163720386 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 7914292035904942195, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+  m_PrefabInstance: {fileID: 1163720382}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1163720387 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -4949278066489626028, guid: 43ce2a3691d2e5e47b300f30c8502bde, type: 3}
+  m_PrefabInstance: {fileID: 1163720382}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1163734348
 GameObject:
   m_ObjectHideFlags: 0
@@ -130890,104 +131123,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1234646342}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1001 &1236036244
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 506931243}
-    m_Modifications:
-    - target: {fileID: 3522701817100608678, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_Name
-      value: Piper M350.Blue
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 7361978065128393182, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 1916845144300225387, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 8828427591734497810, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 4579809250581739130, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 7283145611845562686, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 9024204734347378515, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 2114275097081436910, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 6697696498560242724, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 9084924250205350425, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 5275331718318726083, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 7920331957857304945, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 2167012600644859764, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 4601940962970244033, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    m_RemovedGameObjects:
-    - {fileID: 3631757655881563300, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 6342442399079890573, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    - {fileID: 5064928883815964583, guid: a69160105833b424e8e98c06728bab15, type: 3}
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: a69160105833b424e8e98c06728bab15, type: 3}
---- !u!4 &1236036245 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 9141434765386374953, guid: a69160105833b424e8e98c06728bab15, type: 3}
-  m_PrefabInstance: {fileID: 1236036244}
-  m_PrefabAsset: {fileID: 0}
---- !u!4 &1236036246 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 510455139115989894, guid: a69160105833b424e8e98c06728bab15, type: 3}
-  m_PrefabInstance: {fileID: 1236036244}
-  m_PrefabAsset: {fileID: 0}
---- !u!4 &1236036247 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 1152820150959061149, guid: a69160105833b424e8e98c06728bab15, type: 3}
-  m_PrefabInstance: {fileID: 1236036244}
-  m_PrefabAsset: {fileID: 0}
---- !u!4 &1236036248 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 7171674098950375986, guid: a69160105833b424e8e98c06728bab15, type: 3}
-  m_PrefabInstance: {fileID: 1236036244}
-  m_PrefabAsset: {fileID: 0}
---- !u!4 &1236036249 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 6115387949402239506, guid: a69160105833b424e8e98c06728bab15, type: 3}
-  m_PrefabInstance: {fileID: 1236036244}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1236991092
 GameObject:
   m_ObjectHideFlags: 0
@@ -135989,6 +136124,7 @@ MonoBehaviour:
   trajectoryVisualizerEnabled: 0
   guidanceMode: 1
   autoShowOnFinal: 1
+  infoToggleKey: 3
   sideViewShowDistanceKm: 4
   topDownShowDistanceKm: 4
   approachCorridorWidthFar: 250
@@ -136008,6 +136144,7 @@ MonoBehaviour:
   maxVerticalScaleMeters: 280
   zoomSmoothing: 3.5
   glideSlopeOnPathToleranceMeters: 8
+  glideSlopeSlightToleranceMeters: 20
   glideSlopeHighLowWarningMeters: 20
 --- !u!114 &1295718640
 MonoBehaviour:
@@ -198904,6 +199041,7 @@ MonoBehaviour:
   lessonSystem: {fileID: 506931250}
   pitchCoach: {fileID: 241784981}
   navigationUI: {fileID: 0}
+  gameFlow: {fileID: 0}
   toggleKey: 39
   visibleByDefault: 1
 --- !u!114 &1819348091
@@ -236414,4 +236552,4 @@ SceneRoots:
   - {fileID: 947686177}
   - {fileID: 1721469329}
   - {fileID: 1295718641}
-  - {fileID: 842642059}
+  - {fileID: 464964448}

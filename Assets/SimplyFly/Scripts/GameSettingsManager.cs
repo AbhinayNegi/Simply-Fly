@@ -10,6 +10,9 @@ namespace SimplyFly.GroundOps
         public float CinematicFov = 50f;
         public float ExternalSensitivity = 1f;
         public float CockpitSensitivity = 1f;
+        public float CockpitPositionX;
+        public float CockpitPositionY;
+        public float CockpitPositionZ;
         public float MotionIntensity = 0.6f;
         public bool ShakeEnabled = true;
         public bool AutoRecenter = true;
@@ -278,6 +281,9 @@ namespace SimplyFly.GroundOps
             cameraSettings.CinematicFov = LoadCameraFloat("cinematicFov", 50f, 35f, 80f);
             cameraSettings.ExternalSensitivity = LoadCameraFloat("externalSensitivity", 1f, 0.25f, 2f);
             cameraSettings.CockpitSensitivity = LoadCameraFloat("cockpitSensitivity", 1f, 0.25f, 2f);
+            cameraSettings.CockpitPositionX = LoadCameraFloat("cockpitPositionX", 0f, -0.5f, 0.5f);
+            cameraSettings.CockpitPositionY = LoadCameraFloat("cockpitPositionY", 0f, -0.4f, 0.4f);
+            cameraSettings.CockpitPositionZ = LoadCameraFloat("cockpitPositionZ", 0f, -0.5f, 0.5f);
             cameraSettings.MotionIntensity = LoadCameraFloat("motionIntensity", 0.6f, 0f, 1f);
             cameraSettings.ShakeEnabled = GetBool("camera.shake", true);
             cameraSettings.AutoRecenter = GetBool("camera.autoRecenter", true);
@@ -318,6 +324,9 @@ namespace SimplyFly.GroundOps
             PlayerPrefs.SetFloat("camera.cinematicFov", cameraSettings.CinematicFov);
             PlayerPrefs.SetFloat("camera.externalSensitivity", cameraSettings.ExternalSensitivity);
             PlayerPrefs.SetFloat("camera.cockpitSensitivity", cameraSettings.CockpitSensitivity);
+            PlayerPrefs.SetFloat("camera.cockpitPositionX", cameraSettings.CockpitPositionX);
+            PlayerPrefs.SetFloat("camera.cockpitPositionY", cameraSettings.CockpitPositionY);
+            PlayerPrefs.SetFloat("camera.cockpitPositionZ", cameraSettings.CockpitPositionZ);
             PlayerPrefs.SetFloat("camera.motionIntensity", cameraSettings.MotionIntensity);
             PlayerPrefs.SetInt("camera.shake", cameraSettings.ShakeEnabled ? 1 : 0);
             PlayerPrefs.SetInt("camera.autoRecenter", cameraSettings.AutoRecenter ? 1 : 0);
@@ -355,6 +364,16 @@ namespace SimplyFly.GroundOps
         public void SetCockpitCameraFov(float value) { cameraSettings.CockpitFov = Mathf.Clamp(value, 55f, 95f); ApplyAndSaveCameraSettings(); }
         public void SetCinematicCameraFov(float value) { cameraSettings.CinematicFov = Mathf.Clamp(value, 35f, 80f); ApplyAndSaveCameraSettings(); }
         public void SetCockpitLookSensitivity(float value) { cameraSettings.CockpitSensitivity = Mathf.Clamp(value, 0.25f, 2f); ApplyAndSaveCameraSettings(); }
+        public void SetCockpitPositionX(float value) { cameraSettings.CockpitPositionX = Mathf.Clamp(value, -0.5f, 0.5f); ApplyAndSaveCameraSettings(); }
+        public void SetCockpitPositionY(float value) { cameraSettings.CockpitPositionY = Mathf.Clamp(value, -0.4f, 0.4f); ApplyAndSaveCameraSettings(); }
+        public void SetCockpitPositionZ(float value) { cameraSettings.CockpitPositionZ = Mathf.Clamp(value, -0.5f, 0.5f); ApplyAndSaveCameraSettings(); }
+        public void ResetCockpitPosition()
+        {
+            cameraSettings.CockpitPositionX = 0f;
+            cameraSettings.CockpitPositionY = 0f;
+            cameraSettings.CockpitPositionZ = 0f;
+            ApplyAndSaveCameraSettings();
+        }
         public void SetRecenterDelay(float value) { cameraSettings.RecenterDelay = Mathf.Clamp(value, 0f, 5f); ApplyAndSaveCameraSettings(); }
         public void SetRecenterSpeed(float value) { cameraSettings.RecenterSpeed = Mathf.Clamp(value, 0.25f, 8f); ApplyAndSaveCameraSettings(); }
         public void SetInvertCockpitY(bool value) { cameraSettings.InvertCockpitY = value; ApplyAndSaveCameraSettings(); }

@@ -255,6 +255,7 @@ namespace SimplyFly.GroundOps
         private float playerCinematicFov = 50f;
         private float externalSensitivityMultiplier = 1f;
         private float cockpitSensitivityMultiplier = 1f;
+        private Vector3 cockpitPositionOffset;
         private bool invertCockpitY;
         private bool cinematicTransitionsEnabled = true;
         private bool includeWingViewsInCycle = true;
@@ -412,7 +413,9 @@ namespace SimplyFly.GroundOps
             switch (cameraMode)
             {
                 case CameraMode.Cockpit:
-                    UpdateAttachedCamera(cockpitCameraAnchor, playerCockpitFov);
+                    UpdateAttachedCamera(
+                        cockpitCameraAnchor, playerCockpitFov,
+                        cockpitPositionOffset);
                     break;
                 case CameraMode.LeftWing:
                     UpdateAttachedCamera(leftWingCameraAnchor, playerExternalFov);
@@ -798,6 +801,12 @@ namespace SimplyFly.GroundOps
 
         private void UpdateAttachedCamera(Transform anchor, float modeFov)
         {
+            UpdateAttachedCamera(anchor, modeFov, Vector3.zero);
+        }
+
+        private void UpdateAttachedCamera(
+            Transform anchor, float modeFov, Vector3 localPositionOffset)
+        {
             if (anchor == null) return;
             Quaternion lookOffset = Quaternion.Euler(
                 attachedLookPitch, attachedLookYaw, 0f);
@@ -806,7 +815,7 @@ namespace SimplyFly.GroundOps
                 transform.position);
             Vector3 smoothLocalPosition = Vector3.SmoothDamp(
                 currentLocalPosition,
-                Vector3.zero,
+                localPositionOffset,
                 ref anchorPositionVelocity,
                 anchorPositionSmoothing,
                 Mathf.Infinity,
@@ -1034,6 +1043,9 @@ namespace SimplyFly.GroundOps
         private void ApplySecondaryMotion()
         {
             float dt = Mathf.Min(0.05f, Time.unscaledDeltaTime);
+            // Cockpit mode remains free of vibration and rumble, but retains a subtle
+            // longitudinal acceleration cue so gaining and losing speed has feedback.
+            bool stableCockpit = cameraMode == CameraMode.Cockpit && !cinematicActive;
             bool enabled = cameraShakeEnabled && cameraMotionIntensity > 0.0001f;
             motionBlend = Mathf.MoveTowards(
                 motionBlend, enabled ? cameraMotionIntensity : 0f,
@@ -1045,6 +1057,14 @@ namespace SimplyFly.GroundOps
             }
 
             MotionMultipliers mode = GetMotionMultipliers();
+            float engineMultiplier = stableCockpit ? 0f : mode.engine;
+            float runwayMultiplier = stableCockpit ? 0f : mode.runway;
+            float windMultiplier = stableCockpit ? 0f : mode.wind;
+            float landingMultiplier = stableCockpit ? 0f : mode.landing;
+            float turbulenceMultiplier = stableCockpit ? 0f : mode.turbulence;
+            float accelerationMultiplier = stableCockpit
+                ? mode.acceleration * 0.65f
+                : mode.acceleration;
             bool grounded = flightPhysics != null &&
                             flightPhysics.IsPhysicallyGrounded;
             if (!motionContactInitialized)
@@ -1120,27 +1140,27 @@ namespace SimplyFly.GroundOps
             float buffetNoise = SmoothNoise(time * 7.5f, 121.4f);
 
             Vector3 localPosition = Vector3.zero;
-            localPosition.x += engineNoiseX * engineVibrationPosition * rpm * mode.engine;
-            localPosition.y += engineNoiseY * engineVibrationPosition * rpm * mode.engine;
-            localPosition.y += runwayNoise * runwayRumblePosition * runwayAmount * mode.runway;
-            localPosition.x += windNoiseX * windMovementPosition * windAmount * mode.wind;
-            localPosition.y += windNoiseY * windMovementPosition * windAmount * 0.6f * mode.wind;
+            localPosition.x += engineNoiseX * engineVibrationPosition * rpm * engineMultiplier;
+            localPosition.y += engineNoiseY * engineVibrationPosition * rpm * engineMultiplier;
+            localPosition.y += runwayNoise * runwayRumblePosition * runwayAmount * runwayMultiplier;
+            localPosition.x += windNoiseX * windMovementPosition * windAmount * windMultiplier;
+            localPosition.y += windNoiseY * windMovementPosition * windAmount * 0.6f * windMultiplier;
             localPosition.z += Mathf.Clamp(
                 -smoothedAcceleration * 0.008f,
                 -maximumAccelerationOffset,
-                maximumAccelerationOffset) * mode.acceleration;
-            localPosition.y += landingSpringPosition * maximumLandingOffset * mode.landing;
+                maximumAccelerationOffset) * accelerationMultiplier;
+            localPosition.y += landingSpringPosition * maximumLandingOffset * landingMultiplier;
             float combinedTurbulence = Mathf.Clamp01(
                 turbulenceInput + stallBuffetInput);
             localPosition += new Vector3(
                 buffetNoise, windNoiseY, 0f) *
-                (0.025f * combinedTurbulence * mode.turbulence);
+                (0.025f * combinedTurbulence * turbulenceMultiplier);
             localPosition *= motionBlend;
 
             Vector3 localEuler = new Vector3(
-                engineNoiseY * engineVibrationRotation * rpm * mode.engine,
-                windNoiseX * 0.12f * combinedTurbulence * mode.turbulence,
-                bankLean + buffetNoise * 0.16f * combinedTurbulence * mode.turbulence);
+                engineNoiseY * engineVibrationRotation * rpm * engineMultiplier,
+                windNoiseX * 0.12f * combinedTurbulence * turbulenceMultiplier,
+                bankLean + buffetNoise * 0.16f * combinedTurbulence * turbulenceMultiplier);
             localEuler *= motionBlend;
 
             lastMotionWorldOffset = transform.TransformVector(localPosition);
@@ -1280,7 +1300,15 @@ namespace SimplyFly.GroundOps
             Vector3 localPosition)
         {
             if (anchor != null) return anchor;
-            Transform existing = target.Find(anchorName);
+            Transform existing = null;
+            foreach (Transform candidate in target.GetComponentsInChildren<Transform>(true))
+            {
+                if (candidate == target ||
+                    !string.Equals(candidate.name, anchorName,
+                        System.StringComparison.OrdinalIgnoreCase)) continue;
+                existing = candidate;
+                break;
+            }
             if (existing != null) return existing;
             GameObject anchorObject = new GameObject(anchorName);
             Transform created = anchorObject.transform;
@@ -1451,6 +1479,10 @@ namespace SimplyFly.GroundOps
                 data.ExternalSensitivity, 0.25f, 2f);
             cockpitSensitivityMultiplier = Mathf.Clamp(
                 data.CockpitSensitivity, 0.25f, 2f);
+            cockpitPositionOffset = new Vector3(
+                Mathf.Clamp(data.CockpitPositionX, -0.5f, 0.5f),
+                Mathf.Clamp(data.CockpitPositionY, -0.4f, 0.4f),
+                Mathf.Clamp(data.CockpitPositionZ, -0.5f, 0.5f));
             cameraMotionIntensity = Mathf.Clamp01(data.MotionIntensity);
             cameraShakeEnabled = data.ShakeEnabled;
             enableAutoCameraRecenter = data.AutoRecenter;

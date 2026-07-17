@@ -549,6 +549,20 @@ namespace SimplyFly.GroundOps
             AddSlider("COCKPIT / WING LOOK SENSITIVITY",
                 camera.CockpitSensitivity, 0.25f, 2f,
                 settings.SetCockpitLookSensitivity);
+            AddSlider("COCKPIT POSITION LEFT / RIGHT",
+                camera.CockpitPositionX, -0.5f, 0.5f,
+                settings.SetCockpitPositionX);
+            AddSlider("COCKPIT POSITION DOWN / UP",
+                camera.CockpitPositionY, -0.4f, 0.4f,
+                settings.SetCockpitPositionY);
+            AddSlider("COCKPIT POSITION BACK / FORWARD",
+                camera.CockpitPositionZ, -0.5f, 0.5f,
+                settings.SetCockpitPositionZ);
+            AddPrimaryButton("RESET COCKPIT POSITION", () =>
+            {
+                settings.ResetCockpitPosition();
+                RefreshPreservingScroll(() => ShowSettings(backAction));
+            });
             AddSlider("CAMERA MOTION INTENSITY", camera.MotionIntensity,
                 0f, 1f, settings.SetCameraMotionIntensity);
             AddToggle("ENABLE CAMERA SHAKE", camera.ShakeEnabled,
