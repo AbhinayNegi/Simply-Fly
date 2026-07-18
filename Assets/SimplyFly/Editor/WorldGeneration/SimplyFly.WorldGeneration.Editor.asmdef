@@ -1,0 +1,14 @@
+{
+  "name": "SimplyFly.WorldGeneration.Editor",
+  "rootNamespace": "SimplyFly.WorldGeneration.Editor",
+  "references": [],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
